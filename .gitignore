@@ -1,2 +1,7 @@
 /.idea/
 /target/
+*.iml
+.DS_Store
+
+# 忽略包含敏感信息的配置文件
+src/main/resources/application-dev.yml
