@@ -9,6 +9,12 @@ www.mandx.xyz或mandx.xyz
 
 <img width="189" height="410" alt="image" src="https://github.com/user-attachments/assets/3a652f57-74b9-4430-a0a8-638b77f104ee" />
 
+<img width="189" height="410" alt="image" src="https://github.com/user-attachments/assets/0eb80524-9d4f-4a77-8fc8-6b22ffa572e9" />
+
+<img width="189" height="410" alt="image" src="https://github.com/user-attachments/assets/7f2bb6d7-1912-4d60-b210-ba582433e0bb" />
+
+
+
 ### 🔐 认证授权
 - **Session认证**：基于Redis的分布式Session管理
 - **安全拦截**：自动拦截未授权请求
