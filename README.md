@@ -1,7 +1,12 @@
 # FriendXXX - 通用Java后端框架
 一个基于Spring Boot 3.x的通用Java后端初始化框架，集成了用户管理、AI聊天、社交动态、实时通信等功能模块，为快速开发提供完整的基础架构。
 
-## ✨ 核心特性
+## ✨前后端(已使用docker部署上线)
+www.mandx.xyz 
+mandx.xyz
+体验用户仅填写昵称即可登录.
+<img width="378" height="820" alt="image" src="https://github.com/user-attachments/assets/adee229c-ece2-42f5-826a-81008783ef1d" />
+<img width="378" height="820" alt="image" src="https://github.com/user-attachments/assets/4ea49f5d-8a21-42bd-9242-525e4d8332be" />
 
 ### 🔐 认证授权
 - **Session认证**：基于Redis的分布式Session管理
