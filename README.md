@@ -74,7 +74,7 @@
 
 1. **克隆项目**
 ```bash
-git clone https://github.com/your-username/friendxxx.git
+git clone https://github.com/bbbdywan/friendxxx.git
 cd friendxxx
 ```
 
@@ -228,7 +228,7 @@ ENTRYPOINT ["java", "-jar", "/app.jar"]
 
 - 项目维护者：白白白
 - 邮箱：2740475903@qq.com
-- 项目地址：https://github.com/your-username/friendxxx
+- 项目地址：[https://github.com/your-username/friendxxx](https://github.com/bbbdywan/friendxxx)
 
 ## 🙏 致谢
 
