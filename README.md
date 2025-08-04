@@ -5,8 +5,7 @@
 www.mandx.xyz 
 mandx.xyz
 体验用户仅填写昵称即可登录.
-<img width="378" height="820" alt="image" src="https://github.com/user-attachments/assets/adee229c-ece2-42f5-826a-81008783ef1d" />
-<img width="378" height="820" alt="image" src="https://github.com/user-attachments/assets/4ea49f5d-8a21-42bd-9242-525e4d8332be" />
+<img width="378" height="820" alt="image" src="https://github.com/user-attachments/assets/adee229c-ece2-42f5-826a-81008783ef1d" /><img width="378" height="820" alt="image" src="https://github.com/user-attachments/assets/4ea49f5d-8a21-42bd-9242-525e4d8332be" />
 
 ### 🔐 认证授权
 - **Session认证**：基于Redis的分布式Session管理
