@@ -1,23 +1,27 @@
 package com.xzh.friendxxx.controller;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.xzh.friendxxx.common.utils.Result;
 import com.xzh.friendxxx.exception.ErrorCode;
 import com.xzh.friendxxx.model.entity.ChatMessage;
 import com.xzh.friendxxx.model.entity.User;
 import com.xzh.friendxxx.model.vo.MessageVO;
+import com.xzh.friendxxx.model.vo.SenderVO;
 import com.xzh.friendxxx.service.ChatMessageService;
 import com.xzh.friendxxx.service.UserService;
 import com.xzh.friendxxx.websocket.websocketserver.server.WebSocketServer;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 
+import java.awt.geom.QuadCurve2D;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +34,7 @@ import org.slf4j.LoggerFactory;
 @Slf4j
 @RestController
 @RequestMapping("/websocket")
-@Api(tags = "WebSocket管理", description = "WebSocket相关接口")
+@Tag(name = "WebSocket管理", description = "WebSocket相关接口")
 public class WebSocketController {
 
     @Autowired
@@ -45,7 +49,7 @@ public class WebSocketController {
     }
 
     @GetMapping("/online-users")
-    @ApiOperation(value = "获取在线用户列表")
+    @Operation(summary = "获取在线用户列表")
     public Result<Map<String, Object>> getOnlineUsers() {
         Map<String, Object> result = new HashMap<>();
         Set<String> onlineUserIds = WebSocketServer.getOnlineUsers().keySet();
@@ -55,9 +59,9 @@ public class WebSocketController {
     }
 
     @GetMapping("/getmessage")
-    @ApiOperation(value = "获取用户聊天记录")
-    public Result<MessageVO> getusermessage(@RequestParam long UserId1,
-                                            @RequestParam long UserId2) {
+    @Operation(summary = "获取用户聊天记录")
+    public Result<MessageVO> getusermessage(@RequestParam("UserId1") long UserId1,
+                                            @RequestParam("UserId2") long UserId2) {
         Long minId = Math.min(UserId1, UserId2);
         Long maxId = Math.max(UserId1, UserId2);
         String conversationId = "private_" + minId + "_" + maxId;
@@ -66,7 +70,7 @@ public class WebSocketController {
         String usermessage="";
         List<String> range = redisTemplate.opsForList().range("message:list_" + conversationId,0,-1);
         if (range != null && !range.isEmpty()) {  // 修改：非空时才处理
-            usermessage = redisTemplate.opsForValue().get("message:user_"+UserId1);
+            usermessage = redisTemplate.opsForValue().get("message:user_"+UserId2);
             if (usermessage != null) {
                 JSONObject userInfo = JSON.parseObject(usermessage);
                 avatar = userInfo.getString("avatar");
@@ -101,19 +105,34 @@ public class WebSocketController {
             redisTemplate.opsForList().rightPush("message:list_" + conversationId, JSON.toJSONString(message));
         }
 
-        redisTemplate.opsForValue().set("message:user_"+UserId1,userInfo.toJSONString());
+        redisTemplate.opsForValue().set("message:user_"+UserId2,userInfo.toJSONString());
         return Result.success(build);
     }
 
     @PostMapping("/send-message")
-    @ApiOperation(value = "服务端主动发送消息")
-    public Result<String> sendMessage(@RequestParam String toUserId, 
-                                    @RequestParam String message) {
+    @Operation(summary = "服务端主动发送消息")
+    public Result<String> sendMessage(@RequestParam("toUserId") String toUserId,
+                                    @RequestParam("message") String message) {
         try {
             WebSocketServer.sendInfo(message, toUserId);
             return Result.success("消息发送成功");
         } catch (Exception e) {
             return Result.error(500, "消息发送失败: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/messagelist")
+    @Operation(summary = "获取用户最近聊天记录对象")
+    public Result<List<SenderVO>> getsender(@RequestParam("UserId") long UserId) {
+        List<SenderVO>  usermessage =  chatMessageService.getuser(UserId);
+        return Result.success(usermessage);
+    }
+
+    @GetMapping("/deletemessage")
+    @Operation(summary = "删除聊天记录")
+    public Result<String> deletemessage(    @RequestParam(value = "conversationId", name = "conversationId") String conversationId) {
+        redisTemplate.delete("message:list_" + conversationId);
+        chatMessageService.deletemsg(conversationId);
+        return Result.success("删除成功");
     }
 }

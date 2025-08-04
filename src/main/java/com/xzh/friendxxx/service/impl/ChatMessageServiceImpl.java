@@ -1,9 +1,10 @@
 package com.xzh.friendxxx.service.impl;
 
-import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xzh.friendxxx.model.entity.ChatMessage;
+import com.xzh.friendxxx.model.vo.SenderVO;
 import com.xzh.friendxxx.service.ChatMessageService;
 import com.xzh.friendxxx.mapper.ChatMessageMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,17 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
         QueryWrapper<ChatMessage> wrapper = new QueryWrapper<>();
         List<ChatMessage> messageList = chatMessageMapper.selectList(wrapper.eq("conversation_id", conversationId));
         return messageList;
+    }
+
+    @Override
+    public List<SenderVO> getuser(long userId) {
+        List<SenderVO> list = chatMessageMapper.getuserID(userId);
+        return list;
+    }
+
+    @Override
+    public void deletemsg(String conversationId) {
+        chatMessageMapper.deletemsg(conversationId);
     }
 
     public void saveChatMessageRedis(ChatMessage chatMessage) {

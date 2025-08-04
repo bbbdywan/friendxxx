@@ -2,6 +2,8 @@ package com.xzh.friendxxx.service;
 
 import com.xzh.friendxxx.model.entity.ChatMessage;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.xzh.friendxxx.model.vo.SenderVO;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
@@ -11,11 +13,16 @@ import java.util.List;
 * @createDate 2025-07-21 22:25:42
 */
 public interface ChatMessageService extends IService<ChatMessage> {
-    
+
+
     /**
      * 保存聊天消息
      */
     void saveChatMessage(Long senderId, Long receiverId, String content, String type, String conversationId);
 
     List<ChatMessage> getMessage(String conversationId);
+
+    List<SenderVO> getuser(long userId);
+
+    void deletemsg(String conversationId);
 }

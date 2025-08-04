@@ -4,6 +4,9 @@ import com.xzh.friendxxx.model.dto.GroupCreatDTO;
 import com.xzh.friendxxx.model.dto.GroupJoinDTO;
 import com.xzh.friendxxx.model.entity.GroupChat;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.xzh.friendxxx.model.vo.GroupListVO;
+
+import java.util.List;
 
 /**
 * @author bb
@@ -15,4 +18,6 @@ public interface GroupChatService extends IService<GroupChat> {
     int save(GroupCreatDTO groupCreatDTO);
 
     int saveuser(GroupJoinDTO groupJoinDTO);
+
+    List<GroupListVO> getlist();
 }

@@ -1,18 +1,23 @@
 package com.xzh.friendxxx.websocket.websocketserver.server;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
+import com.xzh.friendxxx.model.entity.ChatMessage;
 import com.xzh.friendxxx.service.ChatMessageService;
+import com.xzh.friendxxx.service.GroupMemberService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
-import javax.websocket.*;
-import javax.websocket.server.PathParam;
-import javax.websocket.server.ServerEndpoint;
+import jakarta.websocket.*;
+import jakarta.websocket.server.PathParam;
+import jakarta.websocket.server.ServerEndpoint;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -22,12 +27,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class WebSocketServer {
 
     private static ChatMessageService chatMessageService;
-
-    @Autowired
-    RedisTemplate redisTemplate;
+    private static RedisTemplate<String, String> redisTemplate;
     @Autowired
     public void setChatMessageService(ChatMessageService chatMessageService) {
         WebSocketServer.chatMessageService = chatMessageService;
+    }
+
+    @Autowired
+    @Qualifier("redisTemplate")
+    public void setRedisTemplate(RedisTemplate<String, String> redisTemplate) {
+        WebSocketServer.redisTemplate = redisTemplate;
     }
 
     /** 静态变量，用来记录当前在线连接数 */
@@ -84,52 +93,81 @@ public class WebSocketServer {
      */
     @OnMessage
     public void onMessage(String message, Session session) {
-        log.info("用户消息:{}, 报文:{}", userId, message);
-        
         if (StringUtils.isNotBlank(message)) {
             try {
                 JSONObject jsonObject = JSON.parseObject(message);
                 String messageType = jsonObject.getString("type");
-                String toUserId = jsonObject.getString("toUserId");
                 String messageContent = jsonObject.getString("message");
-                
-                // 构建转发消息
-                JSONObject forwardMessage = new JSONObject();
-                forwardMessage.put("fromUserId", this.userId);
-                forwardMessage.put("message", messageContent);
-                forwardMessage.put("timestamp", System.currentTimeMillis());
-                forwardMessage.put("type", messageType);
-                
-                if ("private".equals(messageType) && StringUtils.isNotBlank(toUserId)) {
-                    // 保存私聊消息到数据库
-                    saveChatMessage(Long.valueOf(this.userId), Long.valueOf(toUserId), messageContent, "private");
-                    
-                    // 私聊消息转发
-                    sendInfo(forwardMessage.toJSONString(), toUserId);
-                    
-                    // 给发送者确认消息
-                    JSONObject ackMessage = new JSONObject();
-                    ackMessage.put("type", "ack");
-                    ackMessage.put("status", "sent");
-                    ackMessage.put("toUserId", toUserId);
-                    sendMessage(ackMessage.toJSONString());
-                    
-                } else if ("group".equals(messageType)) {
-                    // 保存群聊消息到数据库
-                    saveChatMessage(Long.valueOf(this.userId), null, messageContent, "group");
-                    
-                    // 群聊消息转发
-                    sendAllMessage(forwardMessage.toJSONString());
-                } else {
-                    // 默认群发
-                    saveChatMessage(Long.valueOf(this.userId), null, messageContent, "group");
-                    sendAllMessage(forwardMessage.toJSONString());
+
+                if ("group".equals(messageType)) {
+                    Long groupId = jsonObject.getLong("groupId");
+                    // 群聊消息处理
+                    sendGroupMessage(Long.valueOf(this.userId), groupId, messageContent);
+                } else if ("private".equals(messageType)) {
+                    String toUserId = jsonObject.getString("toUserId");
+                    // 私聊消息处理
+                    sendPrivateMessage(Long.valueOf(this.userId), Long.valueOf(toUserId), messageContent);
                 }
-                
+                // ... 其他消息类型处理
             } catch (Exception e) {
                 log.error("消息处理异常", e);
-                sendErrorMessage("消息格式错误");
             }
+        }
+    }
+
+    private void sendGroupMessage(Long senderId, Long groupId, String content) {
+        try {
+            // 1. 保存群聊消息到数据库并更新Redis缓存
+            String conversationId = "group_" + groupId;
+            saveChatMessageAndCache(senderId, null, content, "group", conversationId);
+
+            // 2. 获取群成员列表
+            List<Long> memberIds = getGroupMembers(groupId);
+
+            // 3. 构建转发消息
+            JSONObject forwardMessage = new JSONObject();
+            forwardMessage.put("fromUserId", senderId);
+            forwardMessage.put("groupId", groupId);
+            forwardMessage.put("message", content);
+            forwardMessage.put("timestamp", System.currentTimeMillis());
+            forwardMessage.put("type", "group");
+
+            // 4. 发送给所有群成员
+            for (Long memberId : memberIds) {
+                sendInfo(forwardMessage.toJSONString(), String.valueOf(memberId));
+            }
+
+        } catch (Exception e) {
+            log.error("群聊消息发送失败", e);
+        }
+    }
+
+    private void sendPrivateMessage(Long senderId, Long receiverId, String content) {
+        try {
+            // 1. 生成会话ID
+            String conversationId = generateConversationId(senderId, receiverId, "private");
+
+            // 2. 保存私聊消息到数据库并更新Redis缓存
+            saveChatMessageAndCache(senderId, receiverId, content, "private", conversationId);
+
+            // 3. 构建转发消息
+            JSONObject forwardMessage = new JSONObject();
+            forwardMessage.put("fromUserId", senderId);
+            forwardMessage.put("toUserId", receiverId);
+            forwardMessage.put("message", content);
+            forwardMessage.put("timestamp", System.currentTimeMillis());
+            forwardMessage.put("type", "private");
+            forwardMessage.put("conversationId", conversationId);
+
+            // 4. 发送给接收者
+            sendInfo(forwardMessage.toJSONString(), String.valueOf(receiverId));
+
+            log.info("私聊消息发送成功: 发送者={}, 接收者={}, 内容={}", senderId, receiverId, content);
+
+        } catch (Exception e) {
+            log.error("私聊消息发送失败: 发送者={}, 接收者={}", senderId, receiverId, e);
+            // 发送错误消息给发送者
+            sendErrorMessage("消息发送失败: " + e.getMessage());
         }
     }
 
@@ -232,23 +270,37 @@ public class WebSocketServer {
     }
 
     /**
-     * 保存聊天消息到数据库
+     * 保存聊天消息到数据库并更新Redis缓存
      */
-    private void saveChatMessage(Long senderId, Long receiverId, String content, String type) {
+    private void saveChatMessageAndCache(Long senderId, Long receiverId, String content, String type, String conversationId) {
         try {
-            // 生成会话ID
-            String conversationId = generateConversationId(senderId, receiverId, type);
-            
             if (chatMessageService != null) {
+                // 1. 保存到数据库
                 chatMessageService.saveChatMessage(senderId, receiverId, content, type, conversationId);
-
                 log.info("消息已保存到数据库: 发送者={}, 接收者={}, 类型={}", senderId, receiverId, type);
 
+                // 2. 创建ChatMessage对象用于Redis缓存
+                ChatMessage chatMessage = new ChatMessage();
+                chatMessage.setSenderId(senderId);
+                chatMessage.setReceiverId(receiverId);
+                chatMessage.setContent(content);
+                chatMessage.setType(type);
+                chatMessage.setCreateTime(new java.util.Date());
+                chatMessage.setConversationId(conversationId);
+
+                // 3. 更新Redis缓存
+                if (redisTemplate != null) {
+                    redisTemplate.opsForList().rightPush("message:list_" + conversationId,
+                        JSON.toJSONString(chatMessage));
+                    log.info("消息已更新到Redis缓存: 会话ID={}", conversationId);
+                } else {
+                    log.warn("RedisTemplate未注入，无法更新缓存");
+                }
             } else {
                 log.warn("ChatMessageService未注入，无法保存消息");
             }
         } catch (Exception e) {
-            log.error("保存消息到数据库失败", e);
+            log.error("保存消息到数据库或更新Redis缓存失败", e);
         }
     }
 
@@ -267,5 +319,18 @@ public class WebSocketServer {
         }
     }
 
+    private static GroupMemberService groupMemberService;
 
+    @Autowired
+    public void setGroupMemberService(GroupMemberService groupMemberService) {
+        WebSocketServer.groupMemberService = groupMemberService;
+    }
+
+    private List<Long> getGroupMembers(Long groupId) {
+        if (groupMemberService != null) {
+            return groupMemberService.getGroupMemberIds(groupId);
+        }
+        log.warn("GroupMemberService未注入，返回空列表");
+        return new ArrayList<>();
+    }
 }

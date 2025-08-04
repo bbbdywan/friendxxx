@@ -42,9 +42,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     public List<User> findUserByTag() {
 
-        QueryWrapper<User> QueryWrapper = new QueryWrapper<>();
-        List<User> userList = userMapper.selectList(QueryWrapper);
-        return userList;
+//        QueryWrapper<User> QueryWrapper = new QueryWrapper<>();
+//        List<User> userList = userMapper.selectList(QueryWrapper);
+
+        return userMapper.getuser();
     }
 
     @Override
@@ -55,6 +56,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         //获取这个用户
         wrapper.eq("userAccount", userAccount);
         User user = this.getOne(wrapper);
+        if(user.getIsDelete()==1)
+            throw new BusinessException(100001,ErrorConstant.USER_NOT_FOUND);
         if(user==null)
             throw new BusinessException(100001,ErrorConstant.USER_NOT_FOUND);
         if(!user.getUserPassword().equals(userPassword))
@@ -89,5 +92,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         } catch (IOException e) {
             throw new BusinessException(PARAMS_ERROR, "文件读取失败: " + e.getMessage());
         }
+    }
+
+    @Override
+    public long getid(String userAccount) {
+
+        return userMapper.getid(userAccount);
+    }
+
+    @Override
+    public void removebyAccount(String account) {
+        userMapper.deleteByAccount(account);
     }
 }

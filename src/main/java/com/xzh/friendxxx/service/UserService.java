@@ -21,4 +21,8 @@ public interface UserService extends IService<User> {
     int updateuser(User user);
 
     String uploadAvatar(MultipartFile file);
+
+    long getid(String userAccount);
+
+    void removebyAccount(String account);
 }

@@ -1,0 +1,52 @@
+your:
+  datasource:
+    host: localhost
+    port: 3306
+    database: friendxxx
+    username: root
+    password: Xzh2063327041
+    stat-view-servlet:
+      login-username: admin
+      login-password: 123456
+  redis:
+    host: localhost
+    port: 6379
+    database: 2
+  alioss:
+    access-key-id: "test"
+    access-key-secret: "test"
+    bucket-name: "test"
+    endpoint: "test"
+
+
+knife4j:
+  basic:
+    enable: false
+    username: admin
+    password: 123456
+
+# 使用H2内存数据库进行测试
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  h2:
+    console:
+      enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  redis:
+    # 禁用Redis以避免连接错误
+    timeout: 0
+    host: 
+    port: 0
+
+# WebSocket配置
+websocket:
+  server:
+    url: ws://127.0.0.1:8080/api/websocket/1
+  heartbeat:
+    enabled: false

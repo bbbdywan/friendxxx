@@ -22,25 +22,25 @@ public class GroupChat {
      * 群名称
      */
     @TableField(value = "group_name")
-    private String group_name;
+    private String groupName;
 
     /**
      * 群头像
      */
     @TableField(value = "avatar_url")
-    private String avatar_url;
+    private String avatarUrl;
 
     /**
      * 创建者ID
      */
     @TableField(value = "creator_id")
-    private Long creator_id;
+    private Long creatorId;
 
     /**
      * 成员数量
      */
     @TableField(value = "member_count")
-    private Integer member_count;
+    private Integer memberCount;
 
     /**
      * 群简介
@@ -52,18 +52,18 @@ public class GroupChat {
      * 创建时间
      */
     @TableField(value = "create_time")
-    private Date create_time;
+    private Date createTime;
 
     /**
      * 更新时间
      */
     @TableField(value = "update_time")
-    private Date update_time;
+    private Date updateTime;
 
     /**
      * 是否删除
      */
     @TableLogic
     @TableField(value = "is_delete")
-    private Integer is_delete;
+    private Integer isDelete;
 }

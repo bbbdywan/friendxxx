@@ -24,13 +24,13 @@ public class GroupMember {
      * 群聊ID
      */
     @TableField(value = "group_id")
-    private Long group_id;
+    private Long groupId;
 
     /**
      * 用户ID
      */
     @TableField(value = "user_id")
-    private Long user_id;
+    private Long userId;
 
     /**
      * 群内角色: owner/admin/member
@@ -42,17 +42,17 @@ public class GroupMember {
      * 加入时间
      */
     @TableField(value = "join_time")
-    private Date join_time;
+    private Date joinTime;
 
     /**
      * 是否被禁言
      */
     @TableField(value = "is_muted")
-    private Integer is_muted;
+    private Integer isMuted;
 
     /**
      * 是否已退出群聊
      */
     @TableField(value = "is_deleted")
-    private Integer is_deleted;
+    private Integer isDeleted;
 }

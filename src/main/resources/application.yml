@@ -17,12 +17,13 @@ spring:
     store-type: redis
     timeout: 1800 # 30 minutes  in seconds
   datasource:
+    # 基本数据源配置
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${your.datasource.host}:${your.datasource.port}/${your.datasource.database}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+    username: ${your.datasource.username}
+    password: ${your.datasource.password}
     # 使用Druid连接池
     druid:
-      driver-class-name: com.mysql.cj.jdbc.Driver
-      url: jdbc:mysql://${your.datasource.host}:${your.datasource.port}/${your.datasource.database}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-      username: ${your.datasource.username}
-      password: ${your.datasource.password}
       # Druid监控配置
       stat-view-servlet:
         enabled: true
@@ -37,6 +38,20 @@ spring:
 #    redis分片集群配置
 #    cluster:
 #      nodes: ${your.redis.cluster.nodes}
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: friendxxx
+    password: 123456
+    #虚拟host 可以不设置,使用server默认host
+    virtual-host: FZZ
+  ai:
+    dashscope:
+      api-key: sk-523951ecba4b45418f8846ebdc0c1d61
+      chat:
+        model: qwen-turbo
+        temperature: 0.7
+        top-p: 0.8
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.greendam.template.model.entity
@@ -47,33 +62,22 @@ mybatis:
 
 knife4j:
   enable: true
+  setting:
+    language: zh_cn
+  production: false
   basic:
-    enable: ${knife4j.basic.enable}
-    username: ${knife4j.basic.username}
-    password: ${knife4j.basic.password}
-  openapi:
-    title: FriendXXX接口文档
-    group:
-      default:
-        group-name: 默认分组
-        api-rule: package
-        api-rule-resources:
-          - com.xzh.friendxxx.controller
+    enable: ${knife4j.basic.enable:false}
+    username: ${knife4j.basic.username:admin}
+    password: ${knife4j.basic.password:123456}
 your:
   alioss:
     access-key-id: ${your.alioss.access-key-id}
     bucket-name: ${your.alioss.bucket-name}
     endpoint: ${your.alioss.endpoint}
     access-key-secret: ${your.alioss.access-key-secret}
-  jwt:
-    admin-secret-key: ${your.jwt.admin-secret-key}
-    admin-ttl: ${your.jwt.admin-ttl}
-    admin-token-name: ${your.jwt.admin-token-name}
-    user-secret-key: ${your.jwt.user-secret-key}
-    user-ttl: ${your.jwt.user-ttl}
-    user-token-name: ${your.jwt.user-token-name}
 # WebSocket配置
 websocket:
   server:
-    url: ws://127.0.0.1:8080/api/websocket/1
+    url: 7
+
 

@@ -1,7 +1,6 @@
 package com.xzh.friendxxx.model.dto;
 
-import io.swagger.annotations.ApiModelProperty;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -10,9 +9,9 @@ import java.io.Serializable;
 @Data
 public class GroupJoinDTO implements Serializable {
 
-    @ApiModelProperty("群聊ID")
+    @Schema(description = "群聊ID")
     private long groupId;
 
-    @ApiModelProperty("用户ID")
+    @Schema(description = "用户ID")
     private long userId;
 }

@@ -5,6 +5,9 @@ import com.xzh.friendxxx.model.entity.GroupMember;
 import com.xzh.friendxxx.service.GroupMemberService;
 import com.xzh.friendxxx.mapper.GroupMemberMapper;
 import org.springframework.stereotype.Service;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
 * @author bb
@@ -13,10 +16,18 @@ import org.springframework.stereotype.Service;
 */
 @Service
 public class GroupMemberServiceImpl extends ServiceImpl<GroupMemberMapper, GroupMember>
-    implements GroupMemberService{
+    implements GroupMemberService {
+
+    @Override
+    public List<Long> getGroupMemberIds(Long groupId) {
+        LambdaQueryWrapper<GroupMember> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(GroupMember::getGroupId, groupId)
+               .eq(GroupMember::getIsDeleted, 0)
+               .select(GroupMember::getUserId);
+        
+        return this.list(wrapper).stream()
+                .map(GroupMember::getUserId)
+                .collect(Collectors.toList());
+    }
 
 }
-
-
-
-

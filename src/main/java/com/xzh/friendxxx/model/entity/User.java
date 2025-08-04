@@ -7,8 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.util.Date;
 import lombok.Data;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * 用户
@@ -16,34 +15,34 @@ import io.swagger.annotations.ApiModelProperty;
  */
 @TableName(value ="user")
 @Data
-@ApiModel("用户信息")
+@Schema(description = "用户信息")
 public class User {
     /**
      * id
      */
     @TableId(type = IdType.AUTO)
-    @ApiModelProperty("用户ID")
+    @Schema(description = "用户ID")
     private Long id;
 
     /**
      * 用户昵称
      */
     @TableField("username")
-    @ApiModelProperty("用户名")
+    @Schema(description = "用户名")
     private String username;
 
     /**
      * 账号
      */
     @TableField("userAccount")
-    @ApiModelProperty("用户账号")
+    @Schema(description = "用户账号")
     private String userAccount;
 
     /**
      * 用户头像
      */
     @TableField("avatarUrl")
-    @ApiModelProperty("头像URL")
+    @Schema(description = "头像URL")
     private String avatarUrl;
 
     /**
@@ -130,5 +129,41 @@ public class User {
      */
     @TableField("age")
     private Integer age;
+
+    /**
+     * 身高（cm）
+     */
+    @TableField("height")
+    private Integer height;
+
+    /**
+     * 职业
+     */
+    @TableField("profession")
+    private String profession;
+
+    /**
+     * 学历
+     */
+    @TableField("education")
+    private String education;
+
+    /**
+     * 星座
+     */
+    @TableField("zodiac")
+    private String zodiac;
+
+    /**
+     * 家乡
+     */
+    @TableField("hometown")
+    private String hometown;
+
+    /**
+     * 感情状态 0:单身 1:热恋中 2:已婚
+     */
+    @TableField("relationship_status")
+    private Integer relationshipStatus;
 }
 

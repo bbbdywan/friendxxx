@@ -1,6 +1,6 @@
 package com.xzh.friendxxx.model.vo;
 import com.xzh.friendxxx.model.entity.ChatMessage;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,12 +16,12 @@ import java.util.List;
 @AllArgsConstructor
 public class MessageVO implements Serializable {
 
-    @ApiModelProperty("消息列表")
+    @Schema(description = "消息列表")
     private List<ChatMessage> messageList;
 
-    @ApiModelProperty("头像")
+    @Schema(description = "头像")
     private String avatar;
 
-    @ApiModelProperty("用户名")
+    @Schema(description = "用户名")
     private String userName;
 }

@@ -1,16 +1,16 @@
 package com.xzh.friendxxx.model.dto;
 
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.io.Serializable;
 
 @Data
 public class UserDTO implements Serializable {
-    @ApiModelProperty("用户名")
+    @Schema(description = "用户名")
     private String userAccount;
 
-    @ApiModelProperty("密码")
+    @Schema(description = "密码")
     private String userpassword;
 
 }
