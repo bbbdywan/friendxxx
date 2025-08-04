@@ -6,6 +6,9 @@ www.mandx.xyz或mandx.xyz
 体验用户仅填写昵称即可登录.
 
 <img width="189" height="410" alt="image" src="https://github.com/user-attachments/assets/4ea49f5d-8a21-42bd-9242-525e4d8332be" />
+
+<img width="189" height="410" alt="image" src="https://github.com/user-attachments/assets/3a652f57-74b9-4430-a0a8-638b77f104ee" />
+
 ### 🔐 认证授权
 - **Session认证**：基于Redis的分布式Session管理
 - **安全拦截**：自动拦截未授权请求
