@@ -2,7 +2,8 @@
 一个基于Spring Boot 3.x的通用Java后端初始化框架，集成了用户管理、AI聊天、社交动态、实时通信等功能模块，为快速开发提供完整的基础架构。
 
 ## ✨前后端(已使用docker部署上线)
-www.mandx.xyz或mandx.xyz
+"www.mandx.xyz"
+"mandx.xyz"
 体验用户仅填写昵称即可登录.
 
 <img width="189" height="410" alt="image" src="https://github.com/user-attachments/assets/4ea49f5d-8a21-42bd-9242-525e4d8332be" />
