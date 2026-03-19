@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xzh.friendxxx.mapper.SocialPostMapper">
+
+    <resultMap id="BaseResultMap" type="com.xzh.friendxxx.model.entity.SocialPost">
+            <id property="id" column="id" />
+            <result property="userId" column="user_id" />
+            <result property="nickname" column="nickname" />
+            <result property="content" column="content" />
+            <result property="imageList" column="image_list" typeHandler="com.xzh.friendxxx.Handler.ListToJsonTypeHandler" />
+            <result property="likeCount" column="like_count" />
+            <result property="isDeleted" column="is_deleted" />
+            <result property="createTime" column="create_time" />
+            <result property="updateTime" column="update_time" />
+            <result property="mood" column="mood" typeHandler="com.xzh.friendxxx.Handler.MoodTypeHandler" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,user_id,nickname,content,image_list,like_count,
+        is_deleted,create_time,update_time,mood
+    </sql>
+
+    <select id="selectAllWithTypeHandler" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" /> FROM social_post
+    </select>
+</mapper>

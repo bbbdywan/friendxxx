@@ -1,0 +1,348 @@
+package com.xzh.friendxxx.controller;
+
+import com.alibaba.fastjson2.TypeReference;
+import com.baomidou.mybatisplus.core.toolkit.StringUtils;
+import com.github.pagehelper.PageInfo;
+import com.xzh.friendxxx.common.context.BaseContext;
+import com.xzh.friendxxx.common.utils.Result;
+import com.xzh.friendxxx.config.MQConfig;
+import com.xzh.friendxxx.constant.ErrorConstant;
+import com.xzh.friendxxx.constant.SessionConstant;
+import com.xzh.friendxxx.model.dto.HrLoginDTO;
+import com.xzh.friendxxx.model.dto.PageDTO;
+import com.xzh.friendxxx.model.dto.UserDTO;
+import com.xzh.friendxxx.model.entity.User;
+import com.xzh.friendxxx.model.vo.GetuUserVO;
+import com.xzh.friendxxx.model.vo.UserVO;
+import com.xzh.friendxxx.service.SocialPostService;
+import com.xzh.friendxxx.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
+import com.alibaba.fastjson2.JSON;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.web.multipart.MultipartFile;
+
+@RestController
+@RequestMapping("/user")
+@Tag(name = "用户管理模块", description = "提供用户相关的接口")
+@CrossOrigin(origins = "http://localhost:5173")
+@Slf4j
+public class UserController {
+
+    @Autowired
+    UserService userService;
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+    @Autowired
+    RedisTemplate<String, String> redisTemplate;
+    @Autowired
+    private SocialPostService socialPostService;
+
+    @PostMapping ("/getalluser")
+    @Operation(summary = "查询所有用户",description = "条件查询")
+    public Result<PageInfo<User>> selectAlluser(@RequestBody PageDTO pageDTO)
+    {
+
+        PageInfo<User> pageInfo = userService.selectuser(pageDTO);
+        return Result.success(pageInfo);
+
+    }
+
+    @DeleteMapping("deleteuser")
+    @Operation(summary = "停用该用户",description = "根据ID停用用户,禁止登录")
+    public Result<Integer> deleteuser(@RequestParam long userid,@RequestParam long deletedid)
+    {
+        User user = userService.getById(userid);
+        if(user.getUserRole()!=3)
+        {
+
+            return Result.error("当前用户无权限");
+        }
+        userService.removeById(deletedid);
+        return Result.success(1);
+    }
+
+    @GetMapping("/tagsList")
+    @Operation(summary = "获取用户标签列表", description = "根据用户标签查询用户信息")
+    public Result<PageInfo<User>> tagsList(@RequestParam(defaultValue = "1") Integer pageNum,
+                                       @RequestParam(defaultValue = "10") Integer pageSize){
+        String RedisKey="user:list:"+pageNum+":"+pageSize;
+        String json = redisTemplate.opsForValue().get(RedisKey); // 正常返回 JSON 字符串
+
+        if (StringUtils.isNotBlank(json)) {
+            PageInfo<User> users = JSON.parseObject(json, new TypeReference<PageInfo<User>>() {});
+            return Result.success(users);
+        }
+        PageInfo<User> tagsList = userService.findUserByTag(pageNum,pageSize);
+       // redisTemplate.opsForValue().set(RedisKey, JSON.toJSONString(tagsList), 30, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set(RedisKey, JSON.toJSONString(tagsList), 30, TimeUnit.MINUTES);
+
+        return Result.success(tagsList);
+    }
+
+    @PostMapping("/login")
+    @Operation(summary = "用户登录", description = "用户登录接口")
+    public Result<UserVO> login(@RequestBody UserDTO userDTO, HttpServletRequest request){
+        User user = userService.login(userDTO);
+
+        // 获取或创建Session
+        HttpSession session = request.getSession(true);
+
+        // 将用户信息存入Session
+        session.setAttribute(SessionConstant.USER_ID, user.getId());
+        session.setAttribute(SessionConstant.USER_NAME, user.getUsername());
+        session.setAttribute(SessionConstant.USER_ACCOUNT, user.getUserAccount());
+        session.setAttribute(SessionConstant.USER_AVATAR, user.getAvatarUrl());
+        session.setAttribute(SessionConstant.USER_TAGS, user.getTags());
+
+        // 设置Session超时时间（30分钟）
+        //session过期机制:若用户在指定时间内没有任何操作,才会被踢出
+        //如果用户访问了任一接口,那么session则会刷新
+        //http 和 https
+        //http是传统的网络传输协议,服务器与本地服务器使用www来进行明文传输,容易被攻击,以及容易被截取消息,所以一般不用于对安全性要求较高的网站,如:邮件,银行等
+        //修改版: http是传统的网络传输协议,服务器与本地服务器基于TCP来进行明文传输,容易被攻击,以及容易被截取消息,所以一般不用于对安全性要求较高的网站,如:邮件,银行等
+        //使用传统TCP------三层架构,三次握手,所以需要三个包
+        //https:在http基础上,使用了SSL证书+http的形式,对于SSL证书需要像CA申请,
+        //这两者使用访问的端口也不一样,对于http,访问的是80端口,而https,访问的是443接口
+        //https工作原理:用户在客户端使用https访问网站或者发送数据时,传输的数据会使用ssl证书进行加密,而这个解密的"秘钥"只存在于服务端,保证了信息的安全性
+        //对于每一个单独的用户的请求,当使用HTTPS请求时,会根据SSL证书生成一个随机秘钥,这个秘钥在经过ssl证书加密后还会再额外加密一次,之后双方的请求都是使用这个秘钥进行加密解密
+        //对于发送的消息进行加密,之后收到服务端加密的信息,也是使用这个秘钥进行解密
+
+        session.setMaxInactiveInterval(1800);
+
+        UserVO build = UserVO.builder()
+                .id(user.getId())
+                .userName(user.getUsername())
+                .userAccount(user.getUserAccount())
+                .avatar(user.getAvatarUrl())
+                .tags(user.getTags())
+                .build();
+        return Result.success(build);
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "用户登出", description = "用户登出接口")
+    public Result<String> logout(HttpServletRequest request){
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate(); // 销毁Session
+           // session.
+        }
+        return Result.success("登出成功");
+    }
+
+
+    @PostMapping("/hrlogin")
+    @Operation(summary = "HR登录", description = "HR登录接口")
+    public Result<UserVO> hrlogin(@RequestBody HrLoginDTO hrLoginDTO, HttpServletRequest request)
+    {
+
+
+
+        String username = hrLoginDTO.getUsername();
+        String AvatarUrl="http://mandx.oss-cn-hangzhou.aliyuncs.com/friendxxx/2025-07-31/avatar/1753959433013.jpg";
+        hrLoginDTO.setAvatarUrl(AvatarUrl);
+        String Tags="HR";
+        hrLoginDTO.setTags(Tags);
+        String UserAccount = "user" + System.currentTimeMillis();
+        hrLoginDTO.setUserAccount(UserAccount);
+        hrLoginDTO.setUserPassword("123456");
+
+        User user = new User();
+        user.setUsername(hrLoginDTO.getUsername());
+        user.setUserAccount(hrLoginDTO.getUserAccount());
+        user.setUserPassword(hrLoginDTO.getUserPassword());
+        user.setAvatarUrl(hrLoginDTO.getAvatarUrl());
+        user.setTags(hrLoginDTO.getTags());
+        user.setPhone("12345678901");
+        user.setEmail(hrLoginDTO.getUsername());
+        userService.save(user);
+
+        //使用用户名去查id
+        long hrid  = user.getId();
+
+        log.info("HR登录 - 用户ID: {}, 账号: {}", hrid, UserAccount);
+        // 获取或创建Session
+        HttpSession session = request.getSession(true);
+
+        // 将用户信息存入Session
+        session.setAttribute(SessionConstant.USER_ID, hrid);
+        session.setAttribute(SessionConstant.USER_NAME,username);
+        session.setAttribute(SessionConstant.USER_ACCOUNT, UserAccount);
+        session.setAttribute(SessionConstant.USER_AVATAR, AvatarUrl);
+        session.setAttribute(SessionConstant.USER_TAGS, Tags);
+
+        // 设置Session超时时间（30分钟）
+        session.setMaxInactiveInterval(1800);
+       // session.set
+        UserVO build = UserVO.builder()
+                .id(hrid)
+                .userName(username)
+                .userAccount(UserAccount)
+                .avatar(AvatarUrl)
+                .tags(Tags)
+                .build();
+
+        int intervalTime = 10000;
+        Long currentTime = new Date().getTime();
+        if(Boolean.TRUE.equals(redisTemplate.hasKey("limit"))) {
+            Integer count = Objects.requireNonNull(redisTemplate.opsForZSet().rangeByScore("limit", currentTime - intervalTime, currentTime)).size();
+            if (count != null && count > 5) {
+                return Result.error("登录次数过多，请稍后再试");
+            }
+        }
+        redisTemplate.opsForZSet().add("limit", UUID.randomUUID().toString(),currentTime);
+
+        rabbitTemplate.convertAndSend(
+                MQConfig.EXCHANGE_USER_TTL,                      // 新的交换机
+                MQConfig.ROUTINGKEY_USER_REGISTER,
+                "限时时间唯一标识-"+UserAccount,
+                message -> {
+                    // 设置过期时间（比如 5 分钟 = 300000 毫秒）
+                    message.getMessageProperties().setExpiration("1800000");
+                    return message;
+                }
+        );
+        return Result.success(build);
+    }
+
+
+    @PostMapping("/update")
+    @Operation(summary = "用户更新", description = "用户更新接口")
+    public Result<Integer> update(@RequestBody User user){
+        //从threadlocal中获取当前用户id
+        long userid= BaseContext.getCurrentId();
+        if(userid!=user.getId())
+            return Result.error(ErrorConstant.USER_NOT_AUTH);
+        //更新用户信息
+        int i = userService.updateuser(user);
+        //删除所有用户列表相关的Redis缓存
+        redisTemplate.keys("user:list:*").forEach(key -> redisTemplate.delete(key));
+        return Result.success(i);
+    }
+
+    @GetMapping("/profile")
+    @Operation(summary = "获取用户信息", description = "获取用户信息接口")
+    public Result<UserVO> profile()
+    {
+        long userid = BaseContext.getCurrentId();
+        User user = userService.getById(userid);
+        UserVO build = UserVO.builder()
+                .id(user.getId())
+                .userName(user.getUsername())
+                .userAccount(user.getUserAccount())
+                .avatar(user.getAvatarUrl())
+                .tags(user.getTags())
+                .background(user.getBackground())
+                .signature(user.getSignature())
+                .age(user.getAge())
+                .gender(user.getGender())
+                .zodiac(user.getZodiac())
+                .height(user.getHeight())
+                .profession(user.getProfession())
+                .education(user.getEducation())
+                .hometown(user.getHometown())
+                .relationshipStatus(user.getRelationshipStatus())
+                .build();
+        return Result.success(build);
+    }
+
+    @GetMapping("/current")
+    @Operation(summary = "获取当前登录用户信息", description = "从Session中获取当前登录用户信息")
+    public Result<UserVO> getCurrentUser(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return Result.error("用户未登录");
+        }
+
+        Long userId = (Long) session.getAttribute(SessionConstant.USER_ID);
+        String userName = (String) session.getAttribute(SessionConstant.USER_NAME);
+        String userAccount = (String) session.getAttribute(SessionConstant.USER_ACCOUNT);
+        String avatar = (String) session.getAttribute(SessionConstant.USER_AVATAR);
+        String tags = (String) session.getAttribute(SessionConstant.USER_TAGS);
+
+        UserVO userVO = UserVO.builder()
+                .id(userId)
+                .userName(userName)
+                .userAccount(userAccount)
+                .avatar(avatar)
+                .tags(tags)
+                .build();
+
+        return Result.success(userVO);
+    }
+
+
+
+
+    @PostMapping("/update/image")
+    @Operation(summary = "用户更新头像", description = "用户更新头像接口")
+    public Result<String> updateImage(@RequestParam("file") MultipartFile file,@RequestParam("type") String type) {
+        //从threadlocal中获取当前用户id
+        long userid = BaseContext.getCurrentId();
+        
+        //上传头像并获取URL
+        String avatarUrl = userService.uploadAvatar(file);
+
+        //更新用户头像URL到数据库
+        User user = new User();
+        user.setId(userid);
+        if ("avatar".equals(type)) {
+            user.setAvatarUrl(avatarUrl);
+            socialPostService.updateAvatarUrl(avatarUrl);
+        } else if ("background".equals(type)) {
+            user.setBackground(avatarUrl);
+        } else {
+            return Result.error("无效的图片类型参数");
+        }
+        userService.updateById(user);
+        
+        return Result.success(avatarUrl);
+    }
+    @GetMapping("/{userID}")
+    @Operation(summary = "查看用户信息", description = "查看用户信息接口")
+    public Result<GetuUserVO> getuser(@PathVariable("userID") Long userID)
+    {
+        User getone = userService.getById(userID);
+        GetuUserVO build=GetuUserVO.builder().id(getone.getId()).userName(getone.getUsername()).
+                userAccount(getone.getUserAccount()).avatar(getone.getAvatarUrl()).tags(getone.getTags()).
+                background(getone.getBackground()).signature(getone.getSignature()).age(getone.getAge()).
+                gender(getone.getGender()).zodiac(getone.getZodiac()).height(getone.getHeight()).
+                profession(getone.getProfession()).education(getone.getEducation()).hometown(getone.getHometown())
+                .relationshipStatus(getone.getRelationshipStatus()).build();
+        return Result.success(build);
+
+    }
+
+    @RabbitListener(queues = MQConfig.QUEUE_USER_DELETE)
+    public void handler(String message){
+        try {
+            String[] split = message.split("-");
+            if (split.length >= 2) {
+                String Account = split[1];
+                userService.removebyAccount(Account);
+            } else {
+                System.err.println("消息格式错误，期望格式: 'prefix-deleteTtl'，实际: " + message);
+            }
+        } catch (Exception e) {
+            System.err.println("处理延迟消息失败: " + message + ", 错误: " + e.getMessage());
+        }
+    }
+}

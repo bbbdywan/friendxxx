@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="generator.mapper.UserMapper">
+
+    <resultMap id="BaseResultMap" type="generator.domain.User">
+            <id property="id" column="id" />
+            <result property="username" column="username" />
+            <result property="userAccount" column="userAccount" />
+            <result property="avatarUrl" column="avatarUrl" />
+            <result property="gender" column="gender" />
+            <result property="userPassword" column="userPassword" />
+            <result property="phone" column="phone" />
+            <result property="email" column="email" />
+            <result property="userStatus" column="userStatus" />
+            <result property="createTime" column="createTime" />
+            <result property="updateTime" column="updateTime" />
+            <result property="isDelete" column="isDelete" />
+            <result property="userRole" column="userRole" />
+            <result property="planetCode" column="planetCode" />
+            <result property="tags" column="tags" />
+            <result property="background" column="background" />
+            <result property="signature" column="signature" />
+            <result property="age" column="age" />
+            <result property="height" column="height" />
+            <result property="profession" column="profession" />
+            <result property="education" column="education" />
+            <result property="zodiac" column="zodiac" />
+            <result property="hometown" column="hometown" />
+            <result property="relationship_status" column="relationship_status" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,username,userAccount,avatarUrl,gender,userPassword,
+        phone,email,userStatus,createTime,updateTime,
+        isDelete,userRole,planetCode,tags,background,
+        signature,age,height,profession,education,
+        zodiac,hometown,relationship_status
+    </sql>
+</mapper>

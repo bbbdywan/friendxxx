@@ -1,0 +1,114 @@
+# 应用服务 WEB 访问端口
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+    #设置cookie保存时间，用于基于session的登录验证
+    session:
+      cookie:
+        max-age: 1800 # 30 minutes  in seconds
+  # Tomcat 线程池配置（针对2核2G优化）
+  tomcat:
+    threads:
+      max: 50
+      min-spare: 10
+    max-connections: 500
+    accept-count: 100
+    connection-timeout: 20000
+# 数据源配置
+spring:
+#  elasticsearch:
+#      cluster-nodes: localhost:9200
+  profiles:
+    #使用dev环境配置，需要创建 application-dev.yml 文件
+    active: dev
+  session:
+    # 使用Redis作为Session存储
+    store-type: redis
+    timeout: 1800 # 30 minutes  in seconds
+  datasource:
+    # 基本数据源配置
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${your.datasource.host}:${your.datasource.port}/${your.datasource.database}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+    username: ${your.datasource.username}
+    password: ${your.datasource.password}
+    # 使用Druid连接池（针对2核2G优化）
+    druid:
+      # 连接池配置
+      initial-size: 5
+      min-idle: 5
+      max-active: 20
+      max-wait: 60000
+      # 关闭监控页面（生产环境）
+      stat-view-servlet:
+        enabled: false
+      # 性能优化
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      validation-query: SELECT 1
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+
+  redis:
+    #单节点redis配置
+    host: ${your.redis.host}
+    port: ${your.redis.port}
+    database: ${your.redis.database}
+    # Lettuce 连接池配置（针对2核2G优化）
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 4
+        min-idle: 2
+        max-wait: 3000
+    timeout: 3000
+#    redis分片集群配置
+#    cluster:
+#      nodes: ${your.redis.cluster.nodes}
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: friendxxx
+    password: 123456
+    #虚拟host 可以不设置,使用server默认host
+    virtual-host: FZZ
+  ai:
+    dashscope:
+      api-key: sk-523951ecba4b45418f8846ebdc0c1d61
+      chat:
+        model: qwen3-max-2026-01-23
+        temperature: 0.7
+        top-p: 0.8
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.greendam.template.model.entity
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 开启驼峰命名
+    map-underscore-to-camel-case: true
+
+knife4j:
+  # 生产环境关闭 Knife4j（节省内存）
+  enable: false
+  production: true
+  setting:
+    language: zh_cn
+  basic:
+    enable: ${knife4j.basic.enable:false}
+    username: ${knife4j.basic.username:admin}
+    password: ${knife4j.basic.password:123456}
+your:
+  alioss:
+    access-key-id: ${your.alioss.access-key-id}
+    bucket-name: ${your.alioss.bucket-name}
+    endpoint: ${your.alioss.endpoint}
+    access-key-secret: ${your.alioss.access-key-secret}
+# WebSocket配置
+websocket:
+  server:
+    url: 7
+
+
+
+

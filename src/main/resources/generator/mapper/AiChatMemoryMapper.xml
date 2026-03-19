@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xzh.friendxxx.mapper.AiChatMemoryMapper">
+
+    <resultMap id="BaseResultMap" type="com.xzh.friendxxx.model.entity.AiChatMemory">
+            <id property="id" column="id" />
+            <result property="conversationId" column="conversation_id" />
+            <result property="content" column="content" />
+            <result property="type" column="type" />
+            <result property="timestamp" column="timestamp" />
+            <result property="isDeleted" column="is_deleted" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,conversation_id,content,type,timestamp,is_deleted
+    </sql>
+</mapper>
