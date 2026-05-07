@@ -69,7 +69,22 @@ public interface UserMapper extends BaseMapper<User> {
     long countUserByCondition(@Param("username") String username,
                               @Param("createTimeBegin") LocalDateTime createTimeBegin,
                               @Param("createTimeEnd") LocalDateTime createTimeEnd);
-    // @Select("select * from user where isDelete = 0 ")
+    @Select("<script>" +
+            "SELECT id, username, avatarUrl, tags, age, gender, zodiac, height, " +
+            "profession, education, hometown, signature " +
+            "FROM user WHERE isDelete = 0 AND id != #{userId} " +
+            "<if test='gender != null'> AND gender = #{gender} </if>" +
+            "<if test='ageMin != null'> AND age &gt;= #{ageMin} </if>" +
+            "<if test='ageMax != null'> AND age &lt;= #{ageMax} </if>" +
+            "<if test='hometown != null and hometown != \"\"'> AND hometown = #{hometown} </if>" +
+            "LIMIT #{limit}" +
+            "</script>")
+    List<User> selectCandidates(@Param("userId") Long userId,
+                                @Param("gender") Integer gender,
+                                @Param("ageMin") Integer ageMin,
+                                @Param("ageMax") Integer ageMax,
+                                @Param("hometown") String hometown,
+                                @Param("limit") int limit);
 
 }
 

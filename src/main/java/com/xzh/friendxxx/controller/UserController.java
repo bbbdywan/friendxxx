@@ -10,9 +10,11 @@ import com.xzh.friendxxx.constant.ErrorConstant;
 import com.xzh.friendxxx.constant.SessionConstant;
 import com.xzh.friendxxx.model.dto.HrLoginDTO;
 import com.xzh.friendxxx.model.dto.PageDTO;
+import com.xzh.friendxxx.model.dto.RecommendRequest;
 import com.xzh.friendxxx.model.dto.UserDTO;
 import com.xzh.friendxxx.model.entity.User;
 import com.xzh.friendxxx.model.vo.GetuUserVO;
+import com.xzh.friendxxx.model.vo.RecommendUserVO;
 import com.xzh.friendxxx.model.vo.UserVO;
 import com.xzh.friendxxx.service.SocialPostService;
 import com.xzh.friendxxx.service.UserService;
@@ -316,6 +318,13 @@ public class UserController {
         
         return Result.success(avatarUrl);
     }
+    @PostMapping("/recommend")
+    @Operation(summary = "用户推荐", description = "基于用户画像的多维度推荐")
+    public Result<List<RecommendUserVO>> recommend(@RequestBody RecommendRequest request) {
+        List<RecommendUserVO> list = userService.recommend(request);
+        return Result.success(list);
+    }
+
     @GetMapping("/{userID}")
     @Operation(summary = "查看用户信息", description = "查看用户信息接口")
     public Result<GetuUserVO> getuser(@PathVariable("userID") Long userID)

@@ -38,6 +38,7 @@ public class WebSocketServer {
     private static ChatMessageService chatMessageService;
     private static RedisTemplate<String, String> redisTemplate;
     private static org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate;
+    private static org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
 
     @Autowired
     public void setChatMessageService(ChatMessageService chatMessageService) {
@@ -56,6 +57,11 @@ public class WebSocketServer {
     @Autowired
     public void setRabbitTemplate(org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate) {
         WebSocketServer.rabbitTemplate = rabbitTemplate;
+    }
+
+    @Autowired
+    public void setStringRedisTemplate(org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate) {
+        WebSocketServer.stringRedisTemplate = stringRedisTemplate;
     }
 
     /** 静态变量，用来记录当前在线连接数 */
@@ -117,6 +123,9 @@ public class WebSocketServer {
         } catch (IOException e) {
             log.error("用户:{}, 网络异常!", userId, e);
         }
+
+        // 拉取离线通知并推送
+        deliverOfflineNotifications(userId);
     }
 
     /**
@@ -217,6 +226,15 @@ public class WebSocketServer {
             // 4. 发送给接收者
             sendInfo(forwardMessage.toJSONString(), String.valueOf(receiverId));
 
+            // 5. 接收者未读数 +1
+            try {
+                String unreadKey = "unread:" + receiverId;
+                stringRedisTemplate.opsForHash().increment(unreadKey, conversationId, 1);
+                log.info("未读数+1: key={}, field={}", unreadKey, conversationId);
+            } catch (Exception e) {
+                log.error("未读数写入Redis失败", e);
+            }
+
             log.info("私聊消息发送成功: 发送者={}, 接收者={}, 内容={}", senderId, receiverId, content);
 
         } catch (Exception e) {
@@ -296,6 +314,25 @@ public class WebSocketServer {
     private static void storeOfflineMessage(String userId, String message) {
         // TODO: 实现离线消息存储到数据库
         log.info("存储离线消息给用户:{}, 消息:{}", userId, message);
+    }
+
+    /**
+     * 用户上线时拉取离线通知并推送
+     */
+    private void deliverOfflineNotifications(String userId) {
+        if (stringRedisTemplate == null) return;
+        String key = com.xzh.friendxxx.consumer.NotificationConsumer.OFFLINE_NOTIFY_KEY + userId;
+        try {
+            List<String> notifications = stringRedisTemplate.opsForList().range(key, 0, -1);
+            if (notifications == null || notifications.isEmpty()) return;
+            for (String msg : notifications) {
+                sendMessage(msg);
+            }
+            stringRedisTemplate.delete(key);
+            log.info("已推送 {} 条离线通知给用户:{}", notifications.size(), userId);
+        } catch (Exception e) {
+            log.error("推送离线通知失败, userId:{}", userId, e);
+        }
     }
 
     /**

@@ -38,6 +38,10 @@ public interface SocialPostMapper extends BaseMapper<SocialPost> {
 
     @Select("select * from friendxxx.social_post where id =#{id}")
     SocialPost getbyupid(@Param("id") Integer id);
+
+    /** 根据动态ID查询作者的 user_id 和 nickname */
+    @Select("select user_id, nickname from social_post where id = #{postId} and is_deleted = 0")
+    SocialPost getAuthorByPostId(@Param("postId") Long postId);
 }
 
 

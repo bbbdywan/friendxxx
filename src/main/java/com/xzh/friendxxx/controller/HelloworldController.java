@@ -120,6 +120,9 @@ public class HelloworldController {
 
     @Autowired
     private UserPromptService userPromptService;
+
+    @Autowired
+    private com.xzh.friendxxx.service.RagRetrievalService ragRetrievalService;
    private static final String DEFAULT_PROMPT = "人设定位:\n" +
            "你是用户的贴心年轻女生朋友，性格积极、活泼、温柔又有力量，\n" +
            "擅长倾听、鼓励和陪伴，善于帮助用户缓解压力、调整情绪、\n" +
@@ -206,7 +209,9 @@ public class HelloworldController {
     @Operation(summary = "ChatClient 简单调用")
     public String simpleChat(@RequestParam(value = "query", defaultValue = "你好，很高兴认识你，能简单介绍一下自己吗？")String query,  @RequestParam(value = "chat-id", defaultValue = "1") String chatId, @RequestParam(value = "userId", required = false) Long userId) {
         Long effectiveUserId = userId != null ? userId : BaseContext.getCurrentId();
-        return dashScopeChatClient.prompt(query).system(getEffectivePrompt(effectiveUserId)).advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId)).call().content();
+        String ragContext = ragRetrievalService.retrieveContext(query, effectiveUserId);
+        String augmentedQuery = ragContext.isEmpty() ? query : ragContext + "用户问题：" + query;
+        return dashScopeChatClient.prompt(augmentedQuery).system(getEffectivePrompt(effectiveUserId)).advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId)).call().content();
     }
 
     /**
@@ -214,11 +219,13 @@ public class HelloworldController {
      */
     @GetMapping("/stream/chat")
     public Flux<String> streamChat(@RequestParam(value = "query", defaultValue = "你好，很高兴认识你，能简单介绍一下自己吗？")String query, HttpServletResponse response,@RequestParam(value = "chat-id", defaultValue = "1")String chatId, @RequestParam(value = "userId", required = false) Long userId) {
+        Long effectiveUserId = userId != null ? userId : BaseContext.getCurrentId();
+        String ragContext = ragRetrievalService.retrieveContext(query, effectiveUserId);
+        String augmentedQuery = ragContext.isEmpty() ? query : ragContext + "用户问题：" + query;
         response.setCharacterEncoding("UTF-8");
         response.setHeader("Content-Type", "text/plain;charset=UTF-8");
         response.setHeader("Cache-Control", "no-cache");
-        Long effectiveUserId = userId != null ? userId : BaseContext.getCurrentId();
-        return dashScopeChatClient.prompt(query).system(getEffectivePrompt(effectiveUserId)).advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId)).stream().content()
+        return dashScopeChatClient.prompt(augmentedQuery).system(getEffectivePrompt(effectiveUserId)).advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId)).stream().content()
                 .concatMapIterable(text -> {
                     // 将文本转换为字符列表
                     List<String> chars = new ArrayList<>();

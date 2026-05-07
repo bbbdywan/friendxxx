@@ -130,9 +130,20 @@ public class WebSocketController {
 
     @GetMapping("/deletemessage")
     @Operation(summary = "删除聊天记录")
-    public Result<String> deletemessage(    @RequestParam(value = "conversationId", name = "conversationId") String conversationId) {
+    public Result<String> deletemessage(@RequestParam(value = "conversationId", name = "conversationId") String conversationId) {
         redisTemplate.delete("message:list_" + conversationId);
         chatMessageService.deletemsg(conversationId);
         return Result.success("删除成功");
+    }
+
+    @PutMapping("/clearUnread")
+    @Operation(summary = "清除会话未读数", description = "用户打开聊天窗口时调用，将该会话未读数清零")
+    public Result<Void> clearUnread(@RequestParam Long userId,
+                                    @RequestParam Long chatUserId) {
+        Long min = Math.min(userId, chatUserId);
+        Long max = Math.max(userId, chatUserId);
+        String conversationId = "private_" + min + "_" + max;
+        chatMessageService.clearUnread(userId, conversationId);
+        return Result.success(null);
     }
 }

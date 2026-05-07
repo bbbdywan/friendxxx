@@ -17,8 +17,8 @@ server:
     connection-timeout: 20000
 # 数据源配置
 spring:
-#  elasticsearch:
-#      cluster-nodes: localhost:9200
+  elasticsearch:
+    uris: http://localhost:9200
   profiles:
     #使用dev环境配置，需要创建 application-dev.yml 文件
     active: dev

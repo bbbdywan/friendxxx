@@ -28,6 +28,9 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
     private ChatMessageMapper chatMessageMapper;
     @Autowired
     RedisTemplate redisTemplate;
+
+    @Autowired
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
     @Override
     public void saveChatMessage(Long senderId, Long receiverId, String content, String type, String conversationId) {
         ChatMessage chatMessage = new ChatMessage();
@@ -51,12 +54,23 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
     @Override
     public List<SenderVO> getuser(long userId) {
         List<SenderVO> list = chatMessageMapper.getuserID(userId);
+        String unreadKey = "unread:" + userId;
+        for (SenderVO vo : list) {
+            Object count = stringRedisTemplate.opsForHash().get(unreadKey, vo.getConversationId());
+            vo.setUnreadCount(count != null ? Long.parseLong(count.toString()) : 0L);
+        }
         return list;
     }
 
     @Override
     public void deletemsg(String conversationId) {
         chatMessageMapper.deletemsg(conversationId);
+    }
+
+    @Override
+    public void clearUnread(Long userId, String conversationId) {
+        String unreadKey = "unread:" + userId;
+        stringRedisTemplate.opsForHash().delete(unreadKey, conversationId);
     }
 
     public void saveChatMessageRedis(ChatMessage chatMessage) {

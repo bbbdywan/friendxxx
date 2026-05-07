@@ -18,7 +18,7 @@ import java.util.List;
 public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
 
 
-    @Select("SELECT DISTINCT sender_id,receiver_id,content,create_time from chat_message where id in (Select MAX(id) from chat_message where receiver_id = #{userId} or sender_id=#{userId} GROUP BY conversation_id )")
+    @Select("SELECT DISTINCT sender_id, receiver_id, content, create_time, conversation_id from chat_message where id in (Select MAX(id) from chat_message where receiver_id = #{userId} or sender_id=#{userId} GROUP BY conversation_id )")
     List<SenderVO> getuserID(@Param("userId") long userId);
 
     @Delete("delete  from chat_message where conversation_id = #{conversationId}")

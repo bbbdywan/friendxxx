@@ -7,6 +7,9 @@ import com.xzh.friendxxx.model.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.xzh.friendxxx.model.dto.RecommendRequest;
+import com.xzh.friendxxx.model.vo.RecommendUserVO;
+
 import java.util.List;
 
 /**
@@ -31,4 +34,6 @@ public interface UserService extends IService<User> {
     PageInfo<User> findUserByTag(Integer pageNum, Integer pageSize);
 
     PageInfo<User> selectuser(PageDTO pageDTO);
+
+    List<RecommendUserVO> recommend(RecommendRequest request);
 }

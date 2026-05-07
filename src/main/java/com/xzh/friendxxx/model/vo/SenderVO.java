@@ -24,4 +24,10 @@ public class SenderVO implements Serializable {
 
     @Schema(description = "发送时间")
     private Date createTime;
+
+    @Schema(description = "未读消息数")
+    private Long unreadCount;
+
+    @Schema(description = "会话ID")
+    private String conversationId;
 }

@@ -15,9 +15,11 @@ import com.xzh.friendxxx.common.utils.AliOssUtil;
 import com.xzh.friendxxx.constant.ErrorConstant;
 import com.xzh.friendxxx.exception.BusinessException;
 import com.xzh.friendxxx.model.dto.PageDTO;
+import com.xzh.friendxxx.model.dto.RecommendRequest;
 import com.xzh.friendxxx.model.dto.UserDTO;
 import com.xzh.friendxxx.model.entity.Tag;
 import com.xzh.friendxxx.model.entity.User;
+import com.xzh.friendxxx.model.vo.RecommendUserVO;
 import com.xzh.friendxxx.service.UserService;
 import com.xzh.friendxxx.mapper.UserMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -212,6 +214,123 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         pageInfo.setPages((int) Math.ceil((double) total / pageDTO.getPageSize()));
 
         return pageInfo;
+    }
+
+    @Override
+    public List<RecommendUserVO> recommend(RecommendRequest request) {
+        // 1. 获取当前用户画像
+        User currentUser = this.getById(request.getUserId());
+        if (currentUser == null) {
+            throw new BusinessException(100001, ErrorConstant.USER_NOT_FOUND);
+        }
+
+        // 2. SQL粗筛候选用户（上限200条，保证性能）
+        int candidateLimit = Math.min(request.getLimit() * 20, 200);
+        List<User> candidates = userMapper.selectCandidates(
+                request.getUserId(),
+                request.getGender(),
+                request.getAgeMin(),
+                request.getAgeMax(),
+                request.getHometown(),
+                candidateLimit
+        );
+
+        if (candidates.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 3. 计算匹配分
+        List<RecommendUserVO> results = new java.util.ArrayList<>();
+        for (User candidate : candidates) {
+            int score = calcMatchScore(currentUser, candidate);
+            results.add(RecommendUserVO.builder()
+                    .id(candidate.getId())
+                    .userName(candidate.getUsername())
+                    .avatar(candidate.getAvatarUrl())
+                    .tags(candidate.getTags())
+                    .age(candidate.getAge())
+                    .gender(candidate.getGender())
+                    .zodiac(candidate.getZodiac())
+                    .height(candidate.getHeight())
+                    .profession(candidate.getProfession())
+                    .education(candidate.getEducation())
+                    .hometown(candidate.getHometown())
+                    .signature(candidate.getSignature())
+                    .matchScore(score)
+                    .build());
+        }
+
+        // 4. 按分数降序排列，取Top N
+        results.sort((a, b) -> b.getMatchScore().compareTo(a.getMatchScore()));
+        int topN = Math.min(request.getLimit(), results.size());
+        return results.subList(0, topN);
+    }
+
+    /** 计算两个用户之间的匹配分数 */
+    private int calcMatchScore(User current, User candidate) {
+        int score = 0;
+
+        // 标签相似度 (0~40)
+        score += tagSimilarity(current.getTags(), candidate.getTags());
+
+        // 同城 (0~15)
+        if (current.getHometown() != null && current.getHometown().equals(candidate.getHometown())) {
+            score += 15;
+        }
+
+        // 星座匹配 (0~10)
+        if (current.getZodiac() != null && current.getZodiac().equals(candidate.getZodiac())) {
+            score += 10;
+        }
+
+        // 学历匹配 (0~10)
+        if (current.getEducation() != null && current.getEducation().equals(candidate.getEducation())) {
+            score += 10;
+        }
+
+        // 职业相似 (0~10)
+        if (current.getProfession() != null && current.getProfession().equals(candidate.getProfession())) {
+            score += 10;
+        }
+
+        // 年龄匹配 (0~15) - 相差5岁内满分，超出递减
+        if (current.getAge() != null && candidate.getAge() != null) {
+            int ageDiff = Math.abs(current.getAge() - candidate.getAge());
+            if (ageDiff <= 3) {
+                score += 15;
+            } else if (ageDiff <= 5) {
+                score += 10;
+            } else if (ageDiff <= 8) {
+                score += 5;
+            }
+        }
+
+        return Math.min(score, 100);
+    }
+
+    /** Jaccard标签相似度，返回0~40 */
+    private int tagSimilarity(String tagsA, String tagsB) {
+        if (tagsA == null || tagsA.isBlank() || tagsB == null || tagsB.isBlank()) {
+            return 0;
+        }
+        String[] arrA = tagsA.split(",");
+        String[] arrB = tagsB.split(",");
+
+        java.util.Set<String> setA = new java.util.HashSet<>();
+        for (String s : arrA) setA.add(s.trim());
+
+        java.util.Set<String> setB = new java.util.HashSet<>();
+        for (String s : arrB) setB.add(s.trim());
+
+        int intersection = 0;
+        for (String s : setA) {
+            if (setB.contains(s)) intersection++;
+        }
+        int union = setA.size() + setB.size() - intersection;
+        if (union == 0) return 0;
+
+        double jaccard = (double) intersection / union;
+        return (int) Math.round(jaccard * 40);
     }
 
 

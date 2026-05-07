@@ -25,4 +25,7 @@ public interface ChatMessageService extends IService<ChatMessage> {
     List<SenderVO> getuser(long userId);
 
     void deletemsg(String conversationId);
+
+    /** 清除某会话的未读数 */
+    void clearUnread(Long userId, String conversationId);
 }

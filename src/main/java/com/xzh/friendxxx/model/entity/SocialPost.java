@@ -82,4 +82,8 @@ public class SocialPost {
 
     @TableField(value = "delete_ttl")
     private String deleteTtl;
+
+    /** 评论数，从 Redis 实时获取，不持久化到数据库 */
+    @TableField(exist = false)
+    private Long commentCount;
 }
