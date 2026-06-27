@@ -4,8 +4,10 @@ import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xzh.friendxxx.model.entity.ChatMessage;
+import com.xzh.friendxxx.model.entity.User;
 import com.xzh.friendxxx.model.vo.SenderVO;
 import com.xzh.friendxxx.service.ChatMessageService;
+import com.xzh.friendxxx.service.UserService;
 import com.xzh.friendxxx.mapper.ChatMessageMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
 * @author bb
@@ -28,9 +31,12 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
     private ChatMessageMapper chatMessageMapper;
     @Autowired
     RedisTemplate redisTemplate;
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+    
     @Override
     public void saveChatMessage(Long senderId, Long receiverId, String content, String type, String conversationId) {
         ChatMessage chatMessage = new ChatMessage();
@@ -55,9 +61,32 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
     public List<SenderVO> getuser(long userId) {
         List<SenderVO> list = chatMessageMapper.getuserID(userId);
         String unreadKey = "unread:" + userId;
+        
         for (SenderVO vo : list) {
+            // 设置未读数
             Object count = stringRedisTemplate.opsForHash().get(unreadKey, vo.getConversationId());
             vo.setUnreadCount(count != null ? Long.parseLong(count.toString()) : 0L);
+            
+            // 计算聊天对象用户ID
+            long senderId = vo.getSenderId();
+            long receiverId = Long.parseLong(vo.getReceiverId());
+            long chatUserId = (senderId == userId) ? receiverId : senderId;
+            vo.setChatUserId(chatUserId);
+            
+            // 查询聊天对象用户信息
+            try {
+                User chatUser = userService.getById(chatUserId);
+                if (chatUser != null) {
+                    vo.setChatUserName(chatUser.getUsername());
+                    vo.setChatUserAvatar(chatUser.getAvatarUrl());
+                } else {
+                    vo.setChatUserName("用户" + chatUserId);
+                    vo.setChatUserAvatar("");
+                }
+            } catch (Exception e) {
+                vo.setChatUserName("用户" + chatUserId);
+                vo.setChatUserAvatar("");
+            }
         }
         return list;
     }

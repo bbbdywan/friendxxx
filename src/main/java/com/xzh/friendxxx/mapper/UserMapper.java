@@ -35,16 +35,28 @@ public interface UserMapper extends BaseMapper<User> {
     @Select("<script>" +
             "SELECT * FROM user " +
             "WHERE 1=1 " +
-            "<if test='username != null and username != &quot;&quot;'> " +
+            "<choose>" +
+            "<when test='username != null and username != &quot;&quot; and username.length() >= 2'>" +
+            "  AND MATCH(username) AGAINST(#{username} IN BOOLEAN MODE) " +
+            "</when>" +
+            "<when test='username != null and username != &quot;&quot;'>" +
             "  AND username LIKE CONCAT('%', #{username}, '%') " +
-            "</if>" +
+            "</when>" +
+            "</choose>" +
             "<if test='createTimeBegin != null'> " +
             "  AND createTime &gt;= #{createTimeBegin} " +
             "</if>" +
             "<if test='createTimeEnd != null'> " +
             "  AND createTime &lt;= #{createTimeEnd} " +
             "</if>" +
+            "<choose>" +
+            "<when test='username != null and username != &quot;&quot; and username.length() >= 2'>" +
+            "ORDER BY MATCH(username) AGAINST(#{username} IN BOOLEAN MODE) DESC " +
+            "</when>" +
+            "<otherwise>" +
             "ORDER BY createTime DESC " +
+            "</otherwise>" +
+            "</choose>" +
             "LIMIT #{offset}, #{pageSize}" +
             "</script>")
     List<User> selectUserByCondition(@Param("username") String username,
@@ -56,9 +68,14 @@ public interface UserMapper extends BaseMapper<User> {
     @Select("<script>" +
             "SELECT COUNT(*) FROM user " +
             "WHERE 1=1 " +
-            "<if test='username != null and username != &quot;&quot;'> " +
+            "<choose>" +
+            "<when test='username != null and username != &quot;&quot; and username.length() >= 2'>" +
+            "  AND MATCH(username) AGAINST(#{username} IN BOOLEAN MODE) " +
+            "</when>" +
+            "<when test='username != null and username != &quot;&quot;'>" +
             "  AND username LIKE CONCAT('%', #{username}, '%') " +
-            "</if>" +
+            "</when>" +
+            "</choose>" +
             "<if test='createTimeBegin != null'> " +
             "  AND createTime &gt;= #{createTimeBegin} " +
             "</if>" +

@@ -66,17 +66,17 @@ public class StausUPController {
                     );
                 }
                 // 动态发布后异步向量化，写入ES供RAG检索
-                if (socialPost.getContent() != null && !socialPost.getContent().isBlank()) {
-                    com.alibaba.fastjson2.JSONObject embeddingMsg = new com.alibaba.fastjson2.JSONObject();
-                    embeddingMsg.put("postId", socialPost.getId());
-                    embeddingMsg.put("userId", socialPost.getUserId());
-                    embeddingMsg.put("content", socialPost.getContent());
-                    rabbitTemplate.convertAndSend(
-                            MQConfig.EXCHANGE_POST_EMBEDDING,
-                            MQConfig.ROUTINGKEY_POST_EMBEDDING,
-                            embeddingMsg.toJSONString()
-                    );
-                }
+//                if (socialPost.getContent() != null && !socialPost.getContent().isBlank()) {
+//                    com.alibaba.fastjson2.JSONObject embeddingMsg = new com.alibaba.fastjson2.JSONObject();
+//                    embeddingMsg.put("postId", socialPost.getId());
+//                    embeddingMsg.put("userId", socialPost.getUserId());
+//                    embeddingMsg.put("content", socialPost.getContent());
+//                    rabbitTemplate.convertAndSend(
+//                            MQConfig.EXCHANGE_POST_EMBEDDING,
+//                            MQConfig.ROUTINGKEY_POST_EMBEDDING,
+//                            embeddingMsg.toJSONString()
+//                    );
+//                }
             }
         });
 

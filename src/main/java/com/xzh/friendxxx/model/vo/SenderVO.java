@@ -19,6 +19,7 @@ public class SenderVO implements Serializable {
 
     @Schema(description = "接收者ID")
     private String receiverId;
+    
     @Schema(description = "发送内容")
     private String content;
 
@@ -30,4 +31,13 @@ public class SenderVO implements Serializable {
 
     @Schema(description = "会话ID")
     private String conversationId;
+
+    @Schema(description = "聊天对象用户ID")
+    private Long chatUserId;
+
+    @Schema(description = "聊天对象昵称")
+    private String chatUserName;
+
+    @Schema(description = "聊天对象头像")
+    private String chatUserAvatar;
 }
