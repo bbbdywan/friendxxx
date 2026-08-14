@@ -26,7 +26,7 @@ public interface SocialPostService extends IService<SocialPost> {
 
     void updateAvatarUrl(String avatarUrl);
 
-    SocialPost getByCurrentId(Integer id);
+    SocialPost getByCurrentId(Long id);
 
     int updateLikescount(LikesDTO likesDTO);
 

@@ -5,6 +5,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.xzh.friendxxx.model.entity.ChatMessage;
 import com.xzh.friendxxx.service.ChatMessageService;
 import com.xzh.friendxxx.service.GroupMemberService;
+import com.xzh.friendxxx.websocket.websocketserver.config.JwtHandshakeConfigurator;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,8 +21,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
-@ServerEndpoint("/websocket/{userId}")
+@ServerEndpoint(value = "/websocket/{userId}", configurator = JwtHandshakeConfigurator.class)
 @Component
 @Slf4j
 public class WebSocketServer {
@@ -39,6 +42,7 @@ public class WebSocketServer {
     private static RedisTemplate<String, String> redisTemplate;
     private static org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate;
     private static org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+    private static Executor messageExecutor = Runnable::run;
 
     @Autowired
     public void setChatMessageService(ChatMessageService chatMessageService) {
@@ -57,6 +61,11 @@ public class WebSocketServer {
     @Autowired
     public void setRabbitTemplate(org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate) {
         WebSocketServer.rabbitTemplate = rabbitTemplate;
+    }
+
+    @Autowired
+    public void setMessageExecutor(@Qualifier("webSocketMessageExecutor") Executor messageExecutor) {
+        WebSocketServer.messageExecutor = messageExecutor;
     }
 
     @Autowired
@@ -81,6 +90,20 @@ public class WebSocketServer {
      */
     @OnOpen
     public void onOpen(Session session, @PathParam("userId") String userId) {
+        Object authenticatedUserId = session.getUserProperties().get(JwtHandshakeConfigurator.USER_ID_KEY);
+        boolean originAllowed = Boolean.TRUE.equals(session.getUserProperties()
+                .get(JwtHandshakeConfigurator.ORIGIN_ALLOWED_KEY));
+        if (!originAllowed || authenticatedUserId == null || !userId.equals(authenticatedUserId.toString())) {
+            log.warn("拒绝未授权的WebSocket连接: pathUserId={}, authenticated={}, originAllowed={}",
+                    userId, authenticatedUserId != null, originAllowed);
+            try {
+                session.close(new CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY, "未授权的WebSocket连接"));
+            } catch (IOException e) {
+                log.error("关闭未授权连接失败", e);
+            }
+            return;
+        }
+
         // 任务6：检查在线人数限制
         if (onlineCount.get() >= MAX_ONLINE_USERS && !webSocketMap.containsKey(userId)) {
             log.warn("在线用户数已达上限 {}, 拒绝用户 {} 连接", MAX_ONLINE_USERS, userId);
@@ -155,11 +178,16 @@ public class WebSocketServer {
             }
 
             // 异步处理消息
-            java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                messageExecutor.execute(() -> {
                 try {
                     JSONObject jsonObject = JSON.parseObject(message);
                     String messageType = jsonObject.getString("type");
                     String messageContent = jsonObject.getString("message");
+                    if (StringUtils.isBlank(messageContent)) {
+                        sendErrorMessage("消息内容不能为空");
+                        return;
+                    }
 
                     if ("group".equals(messageType)) {
                         Long groupId = jsonObject.getLong("groupId");
@@ -173,20 +201,28 @@ public class WebSocketServer {
                     // ... 其他消息类型处理
                 } catch (Exception e) {
                     log.error("消息处理异常", e);
-                    sendErrorMessage("消息处理失败: " + e.getMessage());
+                    sendErrorMessage("消息处理失败");
                 }
-            });
+                });
+            } catch (RejectedExecutionException e) {
+                log.warn("WebSocket消息处理队列已满: userId={}", userId);
+                sendErrorMessage("服务器繁忙，请稍后再试");
+            }
         }
     }
 
     private void sendGroupMessage(Long senderId, Long groupId, String content) {
         try {
-            // 1. 保存群聊消息到数据库并更新Redis缓存
+            // 1. 获取群成员列表并验证发送者身份
+            List<Long> memberIds = getGroupMembers(groupId);
+            if (!memberIds.contains(senderId)) {
+                sendErrorMessage("你不是该群成员");
+                return;
+            }
+
+            // 2. 保存群聊消息到数据库并更新Redis缓存
             String conversationId = "group_" + groupId;
             saveChatMessageAndCache(senderId, null, content, "group", conversationId);
-
-            // 2. 获取群成员列表
-            List<Long> memberIds = getGroupMembers(groupId);
 
             // 3. 构建转发消息
             JSONObject forwardMessage = new JSONObject();
@@ -235,12 +271,12 @@ public class WebSocketServer {
                 log.error("未读数写入Redis失败", e);
             }
 
-            log.info("私聊消息发送成功: 发送者={}, 接收者={}, 内容={}", senderId, receiverId, content);
+            log.info("私聊消息发送成功: 发送者={}, 接收者={}", senderId, receiverId);
 
         } catch (Exception e) {
             log.error("私聊消息发送失败: 发送者={}, 接收者={}", senderId, receiverId, e);
             // 发送错误消息给发送者
-            sendErrorMessage("消息发送失败: " + e.getMessage());
+            sendErrorMessage("消息发送失败，请稍后重试");
         }
     }
 
@@ -284,7 +320,7 @@ public class WebSocketServer {
      * 发送消息给指定用户，支持离线消息存储
      */
     public static void sendInfo(String message, String userId) {
-        log.info("发送消息到:{}, 报文:{}", userId, message);
+        log.debug("准备发送消息到用户:{}", userId);
         
         if (StringUtils.isNotBlank(userId) && webSocketMap.containsKey(userId)) {
             try {
@@ -313,7 +349,7 @@ public class WebSocketServer {
      */
     private static void storeOfflineMessage(String userId, String message) {
         // TODO: 实现离线消息存储到数据库
-        log.info("存储离线消息给用户:{}, 消息:{}", userId, message);
+        log.debug("用户离线，消息已由持久化记录兜底: userId={}", userId);
     }
 
     /**

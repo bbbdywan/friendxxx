@@ -68,12 +68,20 @@ public class SocialPostServiceImpl extends ServiceImpl<SocialPostMapper, SocialP
         if (file == null || file.isEmpty()) {
             throw new BusinessException(PARAMS_ERROR, "上传文件不能为空");
         }
+        if (file.getSize() > 5L * 1024 * 1024) {
+            throw new BusinessException(PARAMS_ERROR, "图片不能超过5MB");
+        }
+        String extensionName = org.springframework.util.StringUtils
+                .getFilenameExtension(file.getOriginalFilename());
+        if (extensionName == null || !java.util.Set.of("jpg", "jpeg", "png", "webp")
+                .contains(extensionName.toLowerCase(java.util.Locale.ROOT))) {
+            throw new BusinessException(PARAMS_ERROR, "仅支持 jpg、jpeg、png、webp 图片");
+        }
 
         try {
             byte[] fileBytes = file.getBytes();
-            String originalFilename = file.getOriginalFilename();
-            String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            String objectName = "avatar/" + System.currentTimeMillis() + extension;
+            String extension = "." + extensionName.toLowerCase(java.util.Locale.ROOT);
+            String objectName = "post/" + java.util.UUID.randomUUID() + extension;
 
             return ossUtil.upload(fileBytes, objectName);
         } catch (IOException e) {
@@ -110,7 +118,7 @@ public class SocialPostServiceImpl extends ServiceImpl<SocialPostMapper, SocialP
     }
 
     @Override
-    public SocialPost getByCurrentId(Integer id) {
+    public SocialPost getByCurrentId(Long id) {
         SocialPost post = socialPostMapper.getbyupid(id);
         if (post != null) {
             Long count = commentMapper.countByPostId(post.getId());
@@ -125,53 +133,44 @@ public class SocialPostServiceImpl extends ServiceImpl<SocialPostMapper, SocialP
         Long userId = likesDTO.getUserId();
         Integer type = likesDTO.getLikesId();
 
-        String key = "post:like:" + postId;
+        if (socialPostMapper.getAuthorByPostId(postId) == null) {
+            throw new BusinessException(PARAMS_ERROR, "动态不存在");
+        }
 
-        // 判断用户是否已经点赞
-        Boolean isMember = redisTemplate.opsForSet().isMember(key, userId.toString());
-        boolean liked = Boolean.TRUE.equals(isMember);
+        String key = "post:like:" + postId;
 
         // 点赞
         if (type == 0) {
-
-            // 如果已经点赞，直接返回
-            if (liked) {
+            Long added = redisTemplate.opsForSet().add(key, userId.toString());
+            if (added == null || added == 0) {
                 return 0;
             }
-
-            // 1. 加入Redis
-            redisTemplate.opsForSet().add(key, userId.toString());
-
-            // 2. 数据库点赞数 +1
             boolean updated = this.update()
-                    .setSql("like_count = like_count + 1")
+                    .setSql("like_count = COALESCE(like_count, 0) + 1")
                     .eq("id", postId)
                     .update();
-
-            // 3. 发送点赞通知到 MQ（不通知自己点赞自己）
             if (updated) {
                 publishLikeNotification(postId, userId);
+            } else {
+                redisTemplate.opsForSet().remove(key, userId.toString());
             }
-
             return updated ? 1 : 0;
         }
 
         // 取消点赞
         if (type == 1) {
-
-            // 如果没点过赞，不处理
-            if (!liked) {
+            Long removed = redisTemplate.opsForSet().remove(key, userId.toString());
+            if (removed == null || removed == 0) {
                 return 0;
             }
-
-            // 1. 从Redis移除
-            redisTemplate.opsForSet().remove(key, userId.toString());
-
-            // 2. 数据库点赞数 -1（防止负数）
-            return this.update()
+            boolean updated = this.update()
                     .setSql("like_count = CASE WHEN like_count > 0 THEN like_count - 1 ELSE 0 END")
                     .eq("id", postId)
-                    .update() ? -1 : 0;
+                    .update();
+            if (!updated) {
+                redisTemplate.opsForSet().add(key, userId.toString());
+            }
+            return updated ? -1 : 0;
         }
 
         return 0;

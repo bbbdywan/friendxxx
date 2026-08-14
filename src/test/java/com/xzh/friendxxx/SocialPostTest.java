@@ -3,12 +3,14 @@ package com.xzh.friendxxx;
 import com.xzh.friendxxx.mapper.SocialPostMapper;
 import com.xzh.friendxxx.model.entity.SocialPost;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
 
 @SpringBootTest(properties = {"websocket.enabled=false"})
+@Disabled("手工集成测试：依赖已初始化的业务数据库")
 public class SocialPostTest {
 
     @Autowired

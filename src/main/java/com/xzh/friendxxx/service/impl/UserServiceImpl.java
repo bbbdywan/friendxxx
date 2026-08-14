@@ -3,6 +3,7 @@ package com.xzh.friendxxx.service.impl;
 import com.alibaba.druid.wall.violation.ErrorCode;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -25,6 +26,7 @@ import com.xzh.friendxxx.mapper.UserMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.multipart.MultipartFile;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -35,6 +37,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 import static com.xzh.friendxxx.exception.ErrorCode.PARAMS_ERROR;
 
@@ -50,6 +54,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Autowired
     AliOssUtil ossUtil;
     private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * 任务17：用户信息本地缓存
@@ -72,8 +77,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 }
             });
 
-    public UserServiceImpl(UserMapper userMapper) {
+    public UserServiceImpl(UserMapper userMapper, PasswordEncoder passwordEncoder) {
         this.userMapper = userMapper;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public List<User> findUserByTag() {
@@ -86,18 +92,37 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Override
     public User login(UserDTO userDTO) {
+        if (userDTO == null || StringUtils.isBlank(userDTO.getUserAccount())
+                || StringUtils.isBlank(userDTO.getUserpassword())) {
+            throw new BusinessException(PARAMS_ERROR, "账号和密码不能为空");
+        }
         String userAccount=userDTO.getUserAccount();
         String userPassword=userDTO.getUserpassword();
         QueryWrapper<User> wrapper = new QueryWrapper<>();
         //获取这个用户
         wrapper.eq("userAccount", userAccount);
-        User user = this.getOne(wrapper);
-        if(user.getIsDelete()==1)
-            throw new BusinessException(100001,ErrorConstant.USER_NOT_FOUND);
+        User user = userMapper.selectOne(wrapper);
         if(user==null)
             throw new BusinessException(100001,ErrorConstant.USER_NOT_FOUND);
-        if(!user.getUserPassword().equals(userPassword))
+        if(Integer.valueOf(1).equals(user.getIsDelete()))
+            throw new BusinessException(100001,ErrorConstant.USER_NOT_FOUND);
+
+        String storedPassword = user.getUserPassword();
+        boolean encoded = storedPassword != null && storedPassword.startsWith("$2");
+        boolean passwordMatches = encoded
+                ? passwordEncoder.matches(userPassword, storedPassword)
+                : storedPassword != null && MessageDigest.isEqual(
+                        storedPassword.getBytes(StandardCharsets.UTF_8),
+                        userPassword.getBytes(StandardCharsets.UTF_8));
+        if(!passwordMatches)
             throw new BusinessException(100002,ErrorConstant.LOGIN_ERROR);
+
+        // 兼容已有明文账号：首次成功登录后自动升级为 BCrypt。
+        if (!encoded) {
+            userMapper.update(null, new UpdateWrapper<User>()
+                    .set("userPassword", passwordEncoder.encode(userPassword))
+                    .eq("id", user.getId()));
+        }
 
         return user;
     }
@@ -143,11 +168,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (file == null || file.isEmpty()) {
             throw new BusinessException(PARAMS_ERROR, "上传文件不能为空");
         }
+        if (file.getSize() > 5L * 1024 * 1024) {
+            throw new BusinessException(PARAMS_ERROR, "图片不能超过5MB");
+        }
+        String extensionName = org.springframework.util.StringUtils
+                .getFilenameExtension(file.getOriginalFilename());
+        if (extensionName == null || !java.util.Set.of("jpg", "jpeg", "png", "webp")
+                .contains(extensionName.toLowerCase(java.util.Locale.ROOT))) {
+            throw new BusinessException(PARAMS_ERROR, "仅支持 jpg、jpeg、png、webp 图片");
+        }
         
         try {
             byte[] fileBytes = file.getBytes();
-            String originalFilename = file.getOriginalFilename();
-            String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            String extension = "." + extensionName.toLowerCase(java.util.Locale.ROOT);
             String objectName = "avatar/" + System.currentTimeMillis() + extension;
             
             return ossUtil.upload(fileBytes, objectName);
@@ -218,6 +251,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Override
     public List<RecommendUserVO> recommend(RecommendRequest request) {
+        if (request == null || request.getUserId() == null) {
+            throw new BusinessException(PARAMS_ERROR, "缺少当前用户信息");
+        }
+        int limit = request.getLimit() == null ? 10 : request.getLimit();
+        if (limit < 1 || limit > 50) {
+            throw new BusinessException(PARAMS_ERROR, "推荐数量必须在1到50之间");
+        }
+        request.setLimit(limit);
+        if (request.getAgeMin() != null && request.getAgeMax() != null
+                && request.getAgeMin() > request.getAgeMax()) {
+            throw new BusinessException(PARAMS_ERROR, "年龄范围不合法");
+        }
         // 1. 获取当前用户画像
         User currentUser = this.getById(request.getUserId());
         if (currentUser == null) {

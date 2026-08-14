@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xzh.friendxxx.common.context.BaseContext;
+import com.xzh.friendxxx.exception.BusinessException;
+import com.xzh.friendxxx.exception.ErrorCode;
 import com.xzh.friendxxx.mapper.GroupMemberMapper;
 import com.xzh.friendxxx.model.dto.GroupCreatDTO;
 import com.xzh.friendxxx.model.dto.GroupJoinDTO;
@@ -14,6 +16,7 @@ import com.xzh.friendxxx.service.GroupChatService;
 import com.xzh.friendxxx.mapper.GroupChatMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -32,7 +35,9 @@ public class GroupChatServiceImpl extends ServiceImpl<GroupChatMapper, GroupChat
 
     @Autowired
     private GroupChatMapper groupChatMapper;
+
     @Override
+    @Transactional
     public int save(GroupCreatDTO groupCreatDTO) {
         GroupChat groupChat = new GroupChat();
         groupChat.setGroupName(groupCreatDTO.getGroup_name());
@@ -45,16 +50,15 @@ public class GroupChatServiceImpl extends ServiceImpl<GroupChatMapper, GroupChat
         groupChat.setIsDelete(0);
         if(this.save(groupChat)) {
             GroupMember groupMember = new GroupMember();
-            QueryWrapper<GroupChat> wrapper = new QueryWrapper<>();
-            wrapper.eq("group_name", groupCreatDTO.getGroup_name());
-            GroupChat group = groupChatMapper.selectOne(wrapper);
-            groupMember.setGroupId(group.getId());
+            groupMember.setGroupId(groupChat.getId());
             groupMember.setUserId(groupCreatDTO.getCreator_id());
             groupMember.setRole("owner");
             groupMember.setJoinTime(new Date());
             groupMember.setIsMuted(0);
             groupMember.setIsDeleted(0);
-            groupMemberMapper.insert(groupMember);
+            if (groupMemberMapper.insert(groupMember) != 1) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "创建群主成员关系失败");
+            }
             return 1;
         }
         return 0;
@@ -62,17 +66,49 @@ public class GroupChatServiceImpl extends ServiceImpl<GroupChatMapper, GroupChat
     }
 
     @Override
+    @Transactional
     public int saveuser(GroupJoinDTO groupJoinDTO) {
-        GroupMember groupMember = new GroupMember();
-        groupMember.setGroupId(groupJoinDTO.getGroupId());
-        groupMember.setUserId(groupJoinDTO.getUserId());
-        groupMember.setRole("member");
-        groupMember.setJoinTime(new Date());
-        groupMember.setIsMuted(0);
-        groupMember.setIsDeleted(0);
-        if(groupMemberMapper.insert(groupMember)==1)
+        LambdaQueryWrapper<GroupMember> memberQuery = new LambdaQueryWrapper<>();
+        memberQuery.eq(GroupMember::getGroupId, groupJoinDTO.getGroupId())
+                .eq(GroupMember::getUserId, groupJoinDTO.getUserId());
+        List<GroupMember> existingMembers = groupMemberMapper.selectList(memberQuery);
+        GroupMember existing = existingMembers.stream()
+                .filter(member -> Integer.valueOf(0).equals(member.getIsDeleted()))
+                .findFirst()
+                .orElse(existingMembers.isEmpty() ? null : existingMembers.get(0));
+        if (existing != null && Integer.valueOf(0).equals(existing.getIsDeleted())) {
             return 1;
-        return 0;
+        }
+
+        if (existing != null) {
+            existing.setIsDeleted(0);
+            existing.setRole("member");
+            existing.setJoinTime(new Date());
+            existing.setIsMuted(0);
+            if (groupMemberMapper.updateById(existing) != 1) {
+                return 0;
+            }
+        } else {
+            GroupMember groupMember = new GroupMember();
+            groupMember.setGroupId(groupJoinDTO.getGroupId());
+            groupMember.setUserId(groupJoinDTO.getUserId());
+            groupMember.setRole("member");
+            groupMember.setJoinTime(new Date());
+            groupMember.setIsMuted(0);
+            groupMember.setIsDeleted(0);
+            if (groupMemberMapper.insert(groupMember) != 1) {
+                return 0;
+            }
+        }
+
+        boolean countUpdated = this.lambdaUpdate()
+                .setSql("member_count = COALESCE(member_count, 0) + 1")
+                .eq(GroupChat::getId, groupJoinDTO.getGroupId())
+                .update();
+        if (!countUpdated) {
+            throw new BusinessException(ErrorCode.GROUP_ERROR, "更新群成员数失败");
+        }
+        return 1;
     }
 
     @Override
@@ -87,6 +123,7 @@ public class GroupChatServiceImpl extends ServiceImpl<GroupChatMapper, GroupChat
         long userid= BaseContext.getCurrentId();
         LambdaQueryWrapper<GroupMember> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(GroupMember::getUserId, userid)
+                .eq(GroupMember::getIsDeleted, 0)
                 .select(GroupMember::getGroupId);
         List<GroupMember> groupMembers = groupMemberMapper.selectList(wrapper);
         Set<Long> groupIds = new HashSet<>();

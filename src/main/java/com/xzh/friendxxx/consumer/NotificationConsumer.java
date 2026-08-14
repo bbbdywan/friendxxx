@@ -69,7 +69,7 @@ public class NotificationConsumer {
                 log.info("用户{}离线，通知已存入 Redis", toUserId);
             }
         } catch (Exception e) {
-            log.error("处理通知消息失败: {}", message, e);
+            log.error("处理通知消息失败", e);
             throw new RuntimeException("通知消息处理失败", e);
         }
     }

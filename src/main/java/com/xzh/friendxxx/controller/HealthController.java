@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/health")
 @Tag(name = "健康检查", description = "系统健康检查接口")
-@CrossOrigin(origins = "http://localhost:5173")
 public class HealthController {
 
     @GetMapping("/check")
@@ -21,9 +20,4 @@ public class HealthController {
         return Result.success("系统运行正常");
     }
 
-    @GetMapping("/session-migration")
-    @Operation(summary = "Session迁移状态", description = "检查JWT到Session的迁移状态")
-    public Result<String> sessionMigrationStatus() {
-        return Result.success("JWT已成功迁移到Session认证");
-    }
 }

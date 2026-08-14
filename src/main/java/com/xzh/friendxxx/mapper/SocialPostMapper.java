@@ -25,19 +25,22 @@ public interface SocialPostMapper extends BaseMapper<SocialPost> {
     // 根据TTL删除过期的动态 - 使用XML实现
     int removebyttl(String deleteTtl);
 
+    @Select("select id from social_post where sup_ttl = #{deleteTtl} and is_deleted = 0")
+    List<Long> findIdsBySupTtl(@Param("deleteTtl") String deleteTtl);
+
     @Select("select id,user_id,nickname,content,image_list,create_time,update_time,mood,avatar_url from social_post where user_id = #{userId} and is_deleted=0")
     @ResultMap("BaseResultMap")
     List<SocialPost> getlist(Long userId);
 
 
-    @Update("update social_post set content = #{content}  where id =#{id}")
+    @Update("update social_post set content = #{content} where id = #{id} and is_deleted = 0")
     int updatepost(@Param("content") String content, @Param("id") Long id);
 
     @Update("update social_post set avatar_url =#{avatar_url}  where user_id = #{user_id} ")
     void updateAvatarUrl(@Param("user_id") Long currentId,@Param("avatar_url") String avatarUrl);
 
-    @Select("select * from friendxxx.social_post where id =#{id}")
-    SocialPost getbyupid(@Param("id") Integer id);
+    @Select("select * from social_post where id = #{id} and is_deleted = 0")
+    SocialPost getbyupid(@Param("id") Long id);
 
     /** 根据动态ID查询作者的 user_id 和 nickname */
     @Select("select user_id, nickname from social_post where id = #{postId} and is_deleted = 0")

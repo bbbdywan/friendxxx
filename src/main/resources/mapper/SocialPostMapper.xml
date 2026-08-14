@@ -29,8 +29,9 @@
     </select>
 
     <!-- 根据TTL删除过期的动态 -->
-    <delete id="removebyttl" parameterType="string">
-        DELETE FROM social_post
-        WHERE sup_ttl= #{deleteTtl}
-    </delete>
+    <update id="removebyttl" parameterType="string">
+        UPDATE social_post
+        SET is_deleted = 1
+        WHERE sup_ttl = #{deleteTtl} AND is_deleted = 0
+    </update>
 </mapper>

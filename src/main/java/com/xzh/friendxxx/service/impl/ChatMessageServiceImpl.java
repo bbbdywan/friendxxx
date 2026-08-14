@@ -53,7 +53,8 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
     @Override
     public List<ChatMessage> getMessage(String conversationId) {
         QueryWrapper<ChatMessage> wrapper = new QueryWrapper<>();
-        List<ChatMessage> messageList = chatMessageMapper.selectList(wrapper.eq("conversation_id", conversationId));
+        List<ChatMessage> messageList = chatMessageMapper.selectList(
+                wrapper.eq("conversation_id", conversationId).orderByAsc("create_time"));
         return messageList;
     }
 

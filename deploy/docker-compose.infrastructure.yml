@@ -1,0 +1,47 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: friendxxx-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-friendxxx}
+      MYSQL_DATABASE: friendxxx
+    ports: ["${MYSQL_PORT:-13306}:3306"]
+    volumes: ["friendxxx-mysql:/var/lib/mysql"]
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+  redis:
+    image: redis:7.4-alpine
+    container_name: friendxxx-redis
+    ports: ["${REDIS_PORT:-16379}:6379"]
+    volumes: ["friendxxx-redis:/data"]
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: friendxxx-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: friendxxx
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-friendxxx}
+      RABBITMQ_DEFAULT_VHOST: FZZ
+    ports: ["${RABBITMQ_PORT:-15672}:5672", "${RABBITMQ_MGMT_PORT:-35672}:15672"]
+    volumes: ["friendxxx-rabbitmq:/var/lib/rabbitmq"]
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: friendxxx-elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports: ["${ES_PORT:-19200}:9200"]
+    volumes: ["friendxxx-es:/usr/share/elasticsearch/data"]
+  nacos:
+    image: nacos/nacos-server:v2.4.3
+    container_name: friendxxx-nacos
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "false"
+      JVM_XMS: 256m
+      JVM_XMX: 512m
+    ports: ["${NACOS_PORT:-18848}:8848", "${NACOS_GRPC_PORT:-19848}:9848"]
+volumes:
+  friendxxx-mysql:
+  friendxxx-redis:
+  friendxxx-rabbitmq:
+  friendxxx-es:

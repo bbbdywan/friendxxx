@@ -35,8 +35,6 @@ public class ChatMessageConsumer {
     @RabbitListener(queues = MQConfig.QUEUE_CHAT_MESSAGE)
     public void handleChatMessage(String message) {
         try {
-            log.info("收到聊天消息: {}", message);
-
             // 解析消息
             JSONObject jsonObject = JSON.parseObject(message);
             Long senderId = jsonObject.getLong("senderId");
@@ -54,7 +52,7 @@ public class ChatMessageConsumer {
             updateRedisCache(senderId, receiverId, content, type, conversationId);
 
         } catch (Exception e) {
-            log.error("处理聊天消息失败: {}", message, e);
+            log.error("处理聊天消息失败", e);
             // 这里可以添加重试逻辑或者将失败消息存入死信队列
             throw new RuntimeException("消息处理失败", e);
         }

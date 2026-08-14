@@ -2,16 +2,17 @@ package com.xzh.friendxxx.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.xzh.friendxxx.common.utils.Result;
+import com.xzh.friendxxx.common.context.BaseContext;
 import com.xzh.friendxxx.exception.ErrorCode;
 import com.xzh.friendxxx.model.dto.GroupCreatDTO;
 import com.xzh.friendxxx.model.dto.GroupJoinDTO;
 import com.xzh.friendxxx.model.entity.GroupChat;
 import com.xzh.friendxxx.model.vo.GroupListVO;
 import com.xzh.friendxxx.service.GroupChatService;
-import com.xzh.friendxxx.service.GroupMemberService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,13 +26,14 @@ public class GroupController {
     @Autowired
     private GroupChatService groupChatService;
 
-    @Autowired
-    private GroupMemberService groupMemberService;
-
-
     @PostMapping("/create")
     @Operation(summary = "创建群聊", description = "创建群聊接口")
     public Result<Integer> createGroup(@RequestBody GroupCreatDTO groupCreatDTO) {
+        if (groupCreatDTO == null || !StringUtils.hasText(groupCreatDTO.getGroup_name())) {
+            return Result.error("群名称不能为空");
+        }
+        groupCreatDTO.setGroup_name(groupCreatDTO.getGroup_name().trim());
+        groupCreatDTO.setCreator_id(BaseContext.getCurrentId());
         QueryWrapper<GroupChat> groupName = new QueryWrapper<>();
         groupName.eq("group_name", groupCreatDTO.getGroup_name());
         if(groupChatService.getOne(groupName)!=null)
@@ -45,6 +47,10 @@ public class GroupController {
     @PostMapping("/join")
     @Operation(summary = "加入群聊", description = "加入群聊接口")
     public Result<Integer> joninGroup(@RequestBody GroupJoinDTO groupJoinDTO) {
+        if (groupJoinDTO == null || groupJoinDTO.getGroupId() <= 0) {
+            return Result.error("群聊参数错误");
+        }
+        groupJoinDTO.setUserId(BaseContext.getCurrentId());
         QueryWrapper<GroupChat> wrapper = new QueryWrapper<>();
         wrapper.eq("id", groupJoinDTO.getGroupId());
         if(groupChatService.getOne(wrapper)==null)

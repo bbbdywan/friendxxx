@@ -38,11 +38,6 @@ public class MQConfig {
     public static final String QUEUE_NOTIFICATION = "QUEUE_NOTIFICATION";
     public static final String ROUTINGKEY_NOTIFICATION = "ROUTINGKEY_NOTIFICATION";
 
-    // 动态 Embedding 向量化相关常量（RAG）
-    public static final String EXCHANGE_POST_EMBEDDING = "EXCHANGE_POST_EMBEDDING";
-    public static final String QUEUE_POST_EMBEDDING = "QUEUE_POST_EMBEDDING";
-    public static final String ROUTINGKEY_POST_EMBEDDING = "ROUTINGKEY_POST_EMBEDDING";
-
     //定义交换机
     @Bean
     public Exchange exchangeDelay(){
@@ -143,26 +138,6 @@ public class MQConfig {
                 .bind(queueNotification())
                 .to(exchangeNotification())
                 .with(ROUTINGKEY_NOTIFICATION)
-                .noargs();
-    }
-
-    // 动态 Embedding 向量化交换机、队列、绑定关系（RAG）
-    @Bean
-    public Exchange exchangePostEmbedding() {
-        return ExchangeBuilder.directExchange(EXCHANGE_POST_EMBEDDING).durable(true).build();
-    }
-
-    @Bean
-    public Queue queuePostEmbedding() {
-        return new Queue(QUEUE_POST_EMBEDDING, true);
-    }
-
-    @Bean
-    public Binding bindingPostEmbedding() {
-        return BindingBuilder
-                .bind(queuePostEmbedding())
-                .to(exchangePostEmbedding())
-                .with(ROUTINGKEY_POST_EMBEDDING)
                 .noargs();
     }
 }

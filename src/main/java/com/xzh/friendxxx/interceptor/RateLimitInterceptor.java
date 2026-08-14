@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -12,11 +13,15 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 限流拦截器（任务14）
- * 使用 Redis 实现滑动窗口限流，防止恶意请求
+ * 使用 Redis 实现按秒固定窗口限流，防止恶意请求
  * 根据压测结果优化：每个用户每秒最多 50 个请求
+ *
+ * <p>可通过 app.rate-limit.enabled 关闭（默认开启）。开发环境设置
+ * APP_RATE_LIMIT_ENABLED=false 可避免依赖本地 Redis。
  */
 @Component
 @Slf4j
+@ConditionalOnProperty(prefix = "app.rate-limit", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class RateLimitInterceptor implements HandlerInterceptor {
 
     @Autowired
@@ -38,16 +43,14 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         // 获取用户标识（优先使用 userId，其次使用 IP）
         String userId = getUserId(request);
-        String clientIp = getClientIp(request);
+        String clientIp = request.getRemoteAddr();
         String identifier = userId != null ? "user:" + userId : "ip:" + clientIp;
 
         // Redis key
-        String redisKey = "rate_limit:" + identifier;
+        long currentTime = System.currentTimeMillis() / 1000;
+        String redisKey = "rate_limit:" + identifier + ":" + currentTime;
 
         try {
-            // 获取当前时间戳（秒）
-            long currentTime = System.currentTimeMillis() / 1000;
-
             // 使用 Redis 的 INCR 命令实现计数
             Long count = redisTemplate.opsForValue().increment(redisKey, 1);
 
@@ -57,7 +60,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
             // 第一次请求时设置过期时间
             if (count == 1) {
-                redisTemplate.expire(redisKey, TIME_WINDOW_SECONDS, TimeUnit.SECONDS);
+                redisTemplate.expire(redisKey, TIME_WINDOW_SECONDS + 1L, TimeUnit.SECONDS);
             }
 
             // 检查是否超过限制
@@ -75,59 +78,28 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return true;
 
         } catch (Exception e) {
-            log.error("限流检查异常: 标识={}", identifier, e);
-            // 异常时放行，避免影响正常业务
+            // 限流异常：受控放行，避免影响正常业务；真正限频（5 秒内只打一条）
+            long now = System.currentTimeMillis();
+            long last = lastRedisWarn.get();
+            if (now - last >= 5000 && lastRedisWarn.compareAndSet(last, now)) {
+                log.warn("限流检查异常(降级放行): 标识={}, err={}", identifier, e.getMessage());
+            }
             return true;
         }
     }
+
+    private static final java.util.concurrent.atomic.AtomicLong lastRedisWarn = new java.util.concurrent.atomic.AtomicLong(0);
 
     /**
      * 从请求中获取用户ID
      */
     private String getUserId(HttpServletRequest request) {
         // 优先从 session 中获取
-        Object userIdObj = request.getSession().getAttribute("userId");
+        var session = request.getSession(false);
+        Object userIdObj = session == null ? null : session.getAttribute("userId");
         if (userIdObj != null) {
             return userIdObj.toString();
         }
-
-        // 其次从请求头中获取
-        String userId = request.getHeader("userId");
-        if (userId != null && !userId.isEmpty()) {
-            return userId;
-        }
-
-        // 最后从请求参数中获取
-        userId = request.getParameter("userId");
-        return userId;
-    }
-
-    /**
-     * 获取客户端真实IP
-     */
-    private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("HTTP_CLIENT_IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("HTTP_X_FORWARDED_FOR");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-
-        // 处理多个IP的情况（取第一个）
-        if (ip != null && ip.contains(",")) {
-            ip = ip.split(",")[0].trim();
-        }
-
-        return ip;
+        return null;
     }
 }

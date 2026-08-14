@@ -11,6 +11,7 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
+import java.net.URI;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.time.LocalDate;
@@ -49,17 +50,11 @@ public class AliOssUtil {
             // 创建PutObject请求。
             ossClient.putObject(bucketName, fullObjectName, new ByteArrayInputStream(bytes));
         } catch (OSSException oe) {
-            System.out.println("Caught an OSSException, which means your request made it to OSS, "
-                    + "but was rejected with an error response for some reason.");
-            System.out.println("Error Message:" + oe.getErrorMessage());
-            System.out.println("Error Code:" + oe.getErrorCode());
-            System.out.println("Request ID:" + oe.getRequestId());
-            System.out.println("Host ID:" + oe.getHostId());
+            log.error("OSS拒绝上传: errorCode={}, requestId={}", oe.getErrorCode(), oe.getRequestId(), oe);
+            throw new IllegalStateException("文件上传失败", oe);
         } catch (ClientException ce) {
-            System.out.println("Caught an ClientException, which means the client encountered "
-                    + "a serious internal problem while trying to communicate with OSS, "
-                    + "such as not being able to access the network.");
-            System.out.println("Error Message:" + ce.getMessage());
+            log.error("OSS客户端上传失败", ce);
+            throw new IllegalStateException("文件上传失败", ce);
         } finally {
             if (ossClient != null) {
                 ossClient.shutdown();
@@ -84,8 +79,16 @@ public class AliOssUtil {
      * @param urls 文件的访问路径列表
      */
     public void delete(List<String> urls) {
-        //处理keys，将url换成文件名
-        List<String> keys = urls.stream().map(url -> url.substring(url.lastIndexOf("/") + 1)).collect(Collectors.toList());
+        if (urls == null || urls.isEmpty()) {
+            return;
+        }
+        List<String> keys = urls.stream()
+                .map(this::extractObjectKey)
+                .filter(key -> key != null && !key.isBlank())
+                .collect(Collectors.toList());
+        if (keys.isEmpty()) {
+            return;
+        }
         // 创建OSSClient实例。
         OSS ossClient = new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
         try {
@@ -93,21 +96,28 @@ public class AliOssUtil {
             DeleteObjectsResult deleteObjectsResult = ossClient.deleteObjects(new DeleteObjectsRequest(bucketName).withKeys(keys).withQuiet(false).withEncodingType("url"));
             log.info("删除成功，删除的文件数: {}，删除的文件列表: {}", deleteObjectsResult.getDeletedObjects().size(), deleteObjectsResult.getDeletedObjects());
         } catch (OSSException oe) {
-            System.out.println("Caught an OSSException, which means your request made it to OSS, "
-                    + "but was rejected with an error response for some reason.");
-            System.out.println("Error Message:" + oe.getErrorMessage());
-            System.out.println("Error Code:" + oe.getErrorCode());
-            System.out.println("Request ID:" + oe.getRequestId());
-            System.out.println("Host ID:" + oe.getHostId());
+            log.error("OSS拒绝删除: errorCode={}, requestId={}", oe.getErrorCode(), oe.getRequestId(), oe);
+            throw new IllegalStateException("文件删除失败", oe);
         } catch (ClientException ce) {
-            System.out.println("Caught an ClientException, which means the client encountered "
-                    + "a serious internal problem while trying to communicate with OSS, "
-                    + "such as not being able to access the network.");
-            System.out.println("Error Message:" + ce.getMessage());
+            log.error("OSS客户端删除失败", ce);
+            throw new IllegalStateException("文件删除失败", ce);
         } finally {
             if (ossClient != null) {
                 ossClient.shutdown();
             }
+        }
+    }
+
+    private String extractObjectKey(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        try {
+            String path = URI.create(url).getPath();
+            return path == null ? null : path.replaceFirst("^/", "");
+        } catch (IllegalArgumentException e) {
+            log.warn("忽略无效的OSS文件地址");
+            return null;
         }
     }
 }

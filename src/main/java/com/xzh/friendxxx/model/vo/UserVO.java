@@ -74,4 +74,7 @@ public class UserVO  implements Serializable {
 
     @Schema(description = "感情状态")
     private Integer relationshipStatus;
+
+    @Schema(description = "角色 0:普通用户 1:管理员")
+    private Integer userRole;
 }

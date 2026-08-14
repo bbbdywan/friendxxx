@@ -29,7 +29,7 @@ public class OpenApiConfig {
                 ))
                 .info(new Info()
                         .title("FriendXXX API文档")
-                        .description("用户管理系统接口文档，包含PDF生成、用户管理等功能")
+                        .description("心事小屋单体服务接口文档")
                         .version("1.0")
                         .contact(new Contact()
                                 .name("ForeverGreenDam")
@@ -41,8 +41,7 @@ public class OpenApiConfig {
                         .addSecuritySchemes("bearerAuth", new SecurityScheme()
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
-                                .bearerFormat("JWT")
-                                .description("JWT认证，请输入Bearer token")))
+                                .bearerFormat("JWT")))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
     }
 }

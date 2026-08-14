@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xzh.friendxxx.model.entity.Mood;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.type.JdbcType;
 
 import org.apache.ibatis.type.MappedJdbcTypes;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 @MappedTypes(Mood.class)
 @MappedJdbcTypes(JdbcType.OTHER)
+@Slf4j
 public class MoodTypeHandler implements TypeHandler<List<Mood>> {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -55,9 +57,8 @@ public class MoodTypeHandler implements TypeHandler<List<Mood>> {
         try {
             return objectMapper.readValue(json, new TypeReference<List<Mood>>() {});
         } catch (Exception e) {
-            System.err.println("解析 JSON 到 List<Mood> 对象失败，原始数据：" + json);
-            e.printStackTrace();
-            return new ArrayList<>(); // 返回空列表而不是抛出异常
+            log.warn("解析心情JSON失败，按空列表处理", e);
+            return new ArrayList<>();
         }
     }
 }

@@ -4,6 +4,7 @@ package com.xzh.friendxxx.Handler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.MappedTypes;
 import org.apache.ibatis.type.TypeHandler;
@@ -13,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @MappedTypes(List.class)
+@Slf4j
 public class ListToJsonTypeHandler implements TypeHandler<List<String>> {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -55,9 +57,8 @@ public class ListToJsonTypeHandler implements TypeHandler<List<String>> {
         try {
             return objectMapper.readValue(json, new TypeReference<List<String>>() {});
         } catch (Exception e) {
-            System.err.println("解析 JSON 到 List<String> 失败，原始数据：" + json);
-            e.printStackTrace();
-            return new ArrayList<>(); // 返回空列表而不是抛出异常
+            log.warn("解析图片列表JSON失败，按空列表处理", e);
+            return new ArrayList<>();
         }
     }
 }

@@ -3,10 +3,6 @@ server:
   port: 8080
   servlet:
     context-path: /api
-    #设置cookie保存时间，用于基于session的登录验证
-    session:
-      cookie:
-        max-age: 1800 # 30 minutes  in seconds
   # Tomcat 线程池配置（针对2核2G优化）
   tomcat:
     threads:
@@ -18,20 +14,15 @@ server:
 # 数据源配置
 spring:
   elasticsearch:
-    uris: http://localhost:9200
+    uris: ${ELASTICSEARCH_URIS:http://localhost:9200}
   profiles:
-    #使用dev环境配置，需要创建 application-dev.yml 文件
-    active: dev
-  session:
-    # 使用Redis作为Session存储
-    store-type: redis
-    timeout: 1800 # 30 minutes  in seconds
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   datasource:
     # 基本数据源配置
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${your.datasource.host}:${your.datasource.port}/${your.datasource.database}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-    username: ${your.datasource.username}
-    password: ${your.datasource.password}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/friendxxx?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
     # 使用Druid连接池（针对2核2G优化）
     druid:
       # 连接池配置
@@ -52,9 +43,10 @@ spring:
 
   redis:
     #单节点redis配置
-    host: ${your.redis.host}
-    port: ${your.redis.port}
-    database: ${your.redis.database}
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    database: ${REDIS_DATABASE:2}
+    password: ${REDIS_PASSWORD:}
     # Lettuce 连接池配置（针对2核2G优化）
     lettuce:
       pool:
@@ -67,24 +59,17 @@ spring:
 #    cluster:
 #      nodes: ${your.redis.cluster.nodes}
   rabbitmq:
-    host: 127.0.0.1
-    port: 5672
-    username: friendxxx
-    password: 123456
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:friendxxx}
+    password: ${RABBITMQ_PASSWORD:123456}
     #虚拟host 可以不设置,使用server默认host
-    virtual-host: FZZ
-  ai:
-    dashscope:
-      api-key: sk-523951ecba4b45418f8846ebdc0c1d61
-      chat:
-        model: qwen3-max-2026-01-23
-        temperature: 0.7
-        top-p: 0.8
+    virtual-host: ${RABBITMQ_VIRTUAL_HOST:FZZ}
 mybatis:
   mapper-locations: classpath:mapper/*.xml
-  type-aliases-package: com.greendam.template.model.entity
+  type-aliases-package: com.xzh.friendxxx.model.entity
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
     # 开启驼峰命名
     map-underscore-to-camel-case: true
 
@@ -97,17 +82,31 @@ knife4j:
   basic:
     enable: ${knife4j.basic.enable:false}
     username: ${knife4j.basic.username:admin}
-    password: ${knife4j.basic.password:123456}
+    password: ${KNIFE4J_BASIC_PASSWORD:}
 your:
   alioss:
-    access-key-id: ${your.alioss.access-key-id}
-    bucket-name: ${your.alioss.bucket-name}
-    endpoint: ${your.alioss.endpoint}
-    access-key-secret: ${your.alioss.access-key-secret}
-# WebSocket配置
-websocket:
-  server:
-    url: 7
+    access-key-id: ${ALIYUN_OSS_ACCESS_KEY_ID:}
+    bucket-name: ${ALIYUN_OSS_BUCKET_NAME:}
+    endpoint: ${ALIYUN_OSS_ENDPOINT:}
+    access-key-secret: ${ALIYUN_OSS_ACCESS_KEY_SECRET:}
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-this-development-secret-at-least-32-bytes}
+    ttl-seconds: ${JWT_TTL_SECONDS:2592000}
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost,http://localhost:5173,http://127.0.0.1:5173,capacitor://localhost,https://localhost}
+  ai:
+    deepseek:
+      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+      api-key: ${DEEPSEEK_API_KEY:}
+      chat-model: ${DEEPSEEK_CHAT_MODEL:deepseek-v4-flash}
+      utility-model: ${DEEPSEEK_UTILITY_MODEL:deepseek-v4-flash}
+      connect-timeout: 5s
+      first-token-timeout: 30s
+      response-timeout: 120s
+  rate-limit:
+    # 生产默认开启；开发环境可设置 APP_RATE_LIMIT_ENABLED=false
+    enabled: ${APP_RATE_LIMIT_ENABLED:true}
 
 
 
